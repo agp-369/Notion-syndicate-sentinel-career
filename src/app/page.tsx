@@ -1,142 +1,112 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ShieldAlert, Terminal, Zap, Globe, Cpu, Loader2, Database, Search, Link as LinkIcon, Radio, Brain, Layers, Briefcase, User, CheckCircle2, Eye, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { ShieldAlert, Zap, Globe, Cpu, Loader2, Database, Link as LinkIcon, Radio, Brain, CheckCircle2, ArrowRight, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function SentinelHub() {
+export default function Home() {
+  const [step, setStep] = useState(1);
   const [notionToken, setNotionToken] = useState("");
   const [databaseId, setDatabaseId] = useState("");
   const [profileId, setProfileId] = useState("");
-  const [isUplinked, setIsUplinked] = useState(false);
-  const [logs, setLogs] = useState<string[]>(["// NEXUS_ARCHITECT_v1.0_READY", "// AWAITING_NOTION_UPLINK..."]);
-  const [isScanning, setIsScanning] = useState(false);
-  const [watchdogActive, setWatchdogActive] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
 
-  const addLog = (msg: string) => setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`].slice(-10));
+  const nextStep = () => setStep(prev => prev + 1);
 
-  useEffect(() => {
-    let interval: any;
-    if (watchdogActive && isUplinked) {
-      addLog("WATCHDOG_PROTOCOL: Active Polling Initialized (10s).");
-      interval = setInterval(async () => {
-        try {
-          const res = await fetch("/api/watchdog", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ notionToken, databaseId, profileId }),
-          });
-          const data = await res.json();
-          if (data.processed > 0) addLog(`AUTO_SYNC: Processed ${data.processed} new leads.`);
-          if (data.finalized > 0) addLog(`AUTO_SYNC: Finalized ${data.finalized} approved leads.`);
-        } catch (e) {
-          console.error("Watchdog Poll Error");
-        }
-      }, 10000);
+  const startNcaProtocol = async () => {
+    setIsConnecting(true);
+    try {
+      const res = await fetch("/api/sentinel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notionToken, databaseId, profileId })
+      });
+      const data = await res.json();
+      if (data.success) nextStep();
+      else alert("Protocol Synchronization Failure: " + data.error);
+    } catch (e) {
+      alert("NCA Uplink Error. Check Network.");
+    } finally {
+      setIsConnecting(false);
     }
-    return () => clearInterval(interval);
-  }, [watchdogActive, isUplinked]);
-
-  const handleUplink = () => {
-    if (!notionToken || !databaseId) return;
-    setIsUplinked(true);
-    addLog("UPLINK_SUCCESSFUL: Handshake Complete.");
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-[#00ffcc] font-mono selection:bg-[#D4AF37] selection:text-black p-6">
-      <div className="max-w-7xl mx-auto space-y-8 text-left">
+    <div className="min-h-screen bg-[#050505] text-[#00ffcc] font-mono selection:bg-[#D4AF37] selection:text-black p-6 flex flex-col items-center justify-center relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,#D4AF3708,transparent_50%)] pointer-events-none" />
+      
+      <div className="max-w-3xl w-full space-y-12 relative z-10">
         
-        <header className="flex justify-between items-center pb-6 border-b border-[#D4AF37]/20">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 border-2 border-[#D4AF37] flex items-center justify-center rotate-45 shadow-[0_0_20px_rgba(212,175,55,0.2)]">
-              <span className="-rotate-45 font-bold text-[#D4AF37]">N</span>
-            </div>
-            <h1 className="text-3xl font-black uppercase tracking-tighter italic">Syndicate Nexus</h1>
+        {/* REBRANDED LOGO */}
+        <div className="flex flex-col items-center text-center space-y-4">
+          <div className="w-16 h-16 border-2 border-[#D4AF37] flex items-center justify-center rotate-45 shadow-[0_0_30px_rgba(212,175,55,0.2)]">
+            <span className="-rotate-45 font-bold text-[#D4AF37] text-2xl">N</span>
           </div>
-          <div className="flex gap-10">
-            <div className="text-right">
-              <p className="text-[8px] uppercase tracking-[0.4em] text-zinc-500 mb-1">MCP_STATUS</p>
-              <p className={`text-xl font-black italic tracking-tighter ${isUplinked ? 'text-[#00ffcc]' : 'text-zinc-700'}`}>{isUplinked ? "ACTIVE" : "STANDBY"}</p>
-            </div>
+          <div>
+            <h1 className="text-4xl font-black uppercase tracking-tighter italic text-white gold-gradient-text">Notion Career Agent</h1>
+            <p className="text-[10px] uppercase tracking-[0.5em] text-[#D4AF37]/60 mt-2">Sovereign Guardian // MCP Intelligence Node</p>
           </div>
-        </header>
+        </div>
 
-        <div className="grid lg:grid-cols-12 gap-10">
-          
-          {/* CONFIGURATION */}
-          <div className="lg:col-span-4 space-y-8">
-            <div className="p-8 border-2 border-[#D4AF37]/30 bg-[#1E293B]/20 rounded-[2.5rem] space-y-8 relative overflow-hidden group">
-              <h3 className="text-sm font-black uppercase tracking-[0.3em] flex items-center gap-3 italic"><Radio size={16} className="text-primary animate-pulse"/> Setup</h3>
-              <div className="space-y-6 relative z-10">
-                <input type="password" value={notionToken} onChange={e => setNotionToken(e.target.value)} className="w-full bg-black/50 border border-[#D4AF37]/20 p-4 rounded-xl text-xs outline-none focus:border-[#D4AF37]" placeholder="Integration Secret..." />
-                <input type="text" value={databaseId} onChange={e => setDatabaseId(e.target.value)} className="w-full bg-black/50 border border-[#D4AF37]/20 p-4 rounded-xl text-xs outline-none focus:border-[#D4AF37]" placeholder="Database ID..." />
-                <input type="text" value={profileId} onChange={e => setProfileId(e.target.value)} className="w-full bg-black/50 border border-[#D4AF37]/20 p-4 rounded-xl text-xs outline-none focus:border-[#D4AF37]" placeholder="Profile Page ID..." />
-                <button onClick={handleUplink} disabled={isUplinked} className="w-full py-5 bg-[#D4AF37] text-black font-black uppercase tracking-[0.2em] text-xs hover:bg-white transition-all disabled:opacity-20 cursor-pointer shadow-2xl">Initiate Handshake</button>
-              </div>
-            </div>
-
-            <div className="p-8 bg-zinc-950/80 border border-zinc-800 rounded-[2rem] space-y-6 h-[250px] overflow-hidden">
-              <h4 className="text-[10px] font-black uppercase tracking-widest opacity-50 italic">Telemetry</h4>
-              <div className="space-y-3">{logs.map((log, i) => (<p key={i} className="text-[10px] text-zinc-500 font-mono">{'>'} {log}</p>))}</div>
-            </div>
-          </div>
-
-          {/* MAIN ARENA */}
-          <div className="lg:col-span-8 space-y-8">
-            <div className="p-12 border-2 border-[#D4AF37]/20 bg-[#1E293B]/10 rounded-[4rem] min-h-[500px] relative overflow-hidden flex flex-col items-center justify-center text-center space-y-12">
-              {!isUplinked ? (
-                <div className="space-y-8">
-                  <LinkIcon className="text-zinc-700 animate-pulse mx-auto" size={48} />
-                  <h2 className="text-3xl font-black uppercase italic tracking-tighter text-zinc-500">Node_Isolated</h2>
+        <div className="royal-card p-12 rounded-[3rem] border-2 border-[#D4AF37]/20 bg-[#1E293B]/10 shadow-2xl relative overflow-hidden text-left">
+          <AnimatePresence mode="wait">
+            {step === 1 && (
+              <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
+                <div className="space-y-4">
+                  <h2 className="text-2xl font-black uppercase italic tracking-tighter text-white">Step 1: Manifest Alignment</h2>
+                  <p className="text-xs text-zinc-500 italic leading-relaxed uppercase tracking-widest">Duplicate the official NCA Guardian template to establish the Job Ledger and Career Profile manifolds.</p>
                 </div>
-              ) : (
-                <div className="space-y-12 w-full max-w-2xl">
-                  <div className="space-y-4">
-                    <h2 className=" gold-gradient-text text-5xl font-black uppercase italic tracking-tighter">Nexus Online.</h2>
-                    <p className="text-xs text-[#D4AF37] font-bold tracking-[0.4em] uppercase">Human-In-The-Loop Protocol Active</p>
+                <a href="https://www.notion.so/f80891f4b35c4857b71fcb17bb5cfda4" target="_blank" className="w-full py-5 border-2 border-[#D4AF37] text-[#D4AF37] flex items-center justify-center gap-4 hover:bg-[#D4AF37] hover:text-black transition-all font-black uppercase tracking-widest text-xs cursor-pointer">Duplicate Template <LinkIcon size={16} /></a>
+                <button onClick={nextStep} className="w-full py-5 bg-white text-black font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-[#00ffcc] transition-all cursor-pointer">Start Setup <ArrowRight size={16} /></button>
+              </motion.div>
+            )}
+
+            {step === 2 && (
+              <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
+                <h2 className="text-2xl font-black uppercase italic tracking-tighter text-white text-center">Step 2: Guardian Uplink</h2>
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase tracking-widest opacity-50">Notion_Integration_Secret</label>
+                    <input type="password" value={notionToken} onChange={e => setNotionToken(e.target.value)} className="w-full bg-black/50 border border-[#D4AF37]/20 p-4 rounded-xl text-xs outline-none focus:border-[#D4AF37]" placeholder="secret_xxxx..." />
                   </div>
-
-                  <div className="grid md:grid-cols-2 gap-8">
-                    <button 
-                      onClick={() => setWatchdogActive(!watchdogActive)}
-                      className={`p-10 border-2 rounded-[3rem] transition-all space-y-6 cursor-pointer shadow-2xl ${
-                        watchdogActive ? 'bg-[#00ffcc] text-black border-[#00ffcc]' : 'border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10'
-                      }`}
-                    >
-                      {watchdogActive ? <ShieldCheck className="h-12 w-12 mx-auto" /> : <ShieldAlert className="h-12 w-12 mx-auto animate-pulse" />}
-                      <div className="space-y-2">
-                        <p className="text-xl font-black uppercase tracking-widest leading-none">{watchdogActive ? "Sentinel Active" : "Deploy Sentinel"}</p>
-                        <p className="text-[10px] uppercase tracking-widest opacity-50 font-bold">Auto-Scan Notion Workspace</p>
-                      </div>
-                    </button>
-
-                    <div className="p-10 border-2 border-[#D4AF37]/20 rounded-[3rem] bg-black/40 flex flex-col justify-center space-y-4 text-left">
-                      <div className="flex items-center gap-2 text-[#D4AF37] font-black uppercase text-[10px] tracking-widest italic"><Zap size={14} /> Intelligence</div>
-                      <p className="text-xs text-zinc-400 italic font-medium leading-relaxed">
-                        "The Watchdog is currently monitoring your Job Tracker. Add a row or check 'Approved' in Notion to see the agent respond."
-                      </p>
-                    </div>
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase tracking-widest opacity-50">Ledger_Database_ID</label>
+                    <input type="text" value={databaseId} onChange={e => setDatabaseId(e.target.value)} className="w-full bg-black/50 border border-[#D4AF37]/20 p-4 rounded-xl text-xs outline-none focus:border-[#D4AF37]" placeholder="f80891f4..." />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[8px] uppercase tracking-widest opacity-50">Career_Profile_ID</label>
+                    <input type="text" value={profileId} onChange={e => setProfileId(e.target.value)} className="w-full bg-black/50 border border-[#D4AF37]/20 p-4 rounded-xl text-xs outline-none focus:border-[#D4AF37]" placeholder="7e016b0e..." />
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
+                <button onClick={startNcaProtocol} disabled={isConnecting} className="w-full py-6 bg-[#D4AF37] text-black font-black uppercase tracking-widest text-sm shadow-[0_10px_40px_rgba(212,175,55,0.3)] hover:scale-[1.02] transition-all flex items-center justify-center gap-4 cursor-pointer">
+                  {isConnecting ? <Loader2 className="animate-spin" /> : <><ShieldCheck size={20} /> Initialize Guardian Node</>}
+                </button>
+              </motion.div>
+            )}
+
+            {step === 3 && (
+              <motion.div key="step3" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-10 text-center flex flex-col items-center">
+                <div className="h-24 w-24 rounded-[2.5rem] bg-[#00ffcc]/10 border-2 border-[#00ffcc] flex items-center justify-center shadow-[0_0_50px_rgba(0,255,204,0.2)]"><CheckCircle2 size={48} className="text-[#00ffcc]" /></div>
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-black uppercase italic tracking-tighter text-white gold-gradient-text">Guardian Active.</h2>
+                  <p className="text-xs text-zinc-500 italic uppercase tracking-[0.2em]">Agentic workflow synchronization successful.</p>
+                </div>
+                <div className="w-full p-6 bg-zinc-950/80 border border-zinc-800 rounded-2xl space-y-4 text-left">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#D4AF37]">Active Agents</p>
+                  <div className="flex justify-between items-center text-[10px] uppercase font-bold tracking-widest"><span>Opportunity Seeker</span><span className="text-[#00ffcc] animate-pulse">Scanning</span></div>
+                  <div className="flex justify-between items-center text-[10px] uppercase font-bold tracking-widest"><span>Application Strategist</span><span className="text-[#00ffcc] animate-pulse">Active</span></div>
+                </div>
+                <p className="text-[10px] text-zinc-600 italic leading-relaxed uppercase tracking-widest max-w-xs">"Handshake permanent. The Agent is now managing your Notion workspace autonomously."</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="flex justify-between items-center text-[8px] uppercase tracking-[0.5em] text-zinc-700 font-black">
+          <span>Protocol: NCA_GUARDIAN_v1.0</span>
+          <span>Status: Sovereign_Active</span>
         </div>
       </div>
     </div>
   );
-}
-
-function ProcessNode({ icon, label, active, complete }: any) {
-  return (
-    <div className={`p-6 rounded-3xl border-2 transition-all duration-500 flex items-center gap-4 ${
-      active ? 'bg-[#D4AF37]/10 border-[#D4AF37] scale-105 shadow-xl text-[#D4AF37]' : 
-      complete ? 'bg-[#00ffcc]/5 border-[#00ffcc]/30 text-[#00ffcc]' : 
-      'bg-zinc-950 border-zinc-800 text-zinc-700 opacity-50'
-    }`}>
-      <div className={`${active ? 'animate-pulse' : ''}`}>{icon}</div>
-      <p className="text-[10px] font-black uppercase tracking-widest">{label}</p>
-    </div>
-  )
 }
