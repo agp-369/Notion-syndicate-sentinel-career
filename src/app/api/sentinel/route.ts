@@ -1,87 +1,99 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
-import axios from "axios";
-
-/**
- * 🏛️ NOTION CAREER AGENT (NCA) - PRO VERSION
- * Focused on High-Value Discovery and Forensic Protection.
- */
 
 export async function POST(req: Request) {
   let stage = "INIT";
   try {
-    const { pageId, notionToken, userProfileId } = await req.json();
-    const apiKey = process.env.GEMINI_API_KEY;
-    const genAI = new GoogleGenerativeAI(apiKey!);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-    // --- STAGE 1: THE SEEKER (HACKER NEWS INTELLIGENCE) ---
-    stage = "HACKER_NEWS_DISCOVERY";
-    console.log("AGENT_SEEKER: Intelligence Gathering on Hacker News...");
+    const { pageId, notionToken, userProfileId, memoryPageId, mode, targetPageId, finalIntel } = await req.json();
     
-    // Fetch latest HN Job stories
-    const hnRes = await axios.get("https://hacker-news.firebaseio.com/v0/jobstories.json");
-    const latestJobId = hnRes.data[0];
-    const jobDetailRes = await axios.get(`https://hacker-news.firebaseio.com/v0/item/${latestJobId}.json`);
-    const hnJob = jobDetailRes.data;
-
-    // --- STAGE 2: AUTO-SEED TO NOTION ---
-    stage = "WORKSPACE_SEEDING";
-    const createPayload = {
-      parent: { database_id: pageId },
-      properties: {
-        "Name": { title: [{ text: { content: hnJob.title || "New Tech Opportunity" } }] },
-        "Job Link": { url: hnJob.url || `https://news.ycombinator.com/item?id=${latestJobId}` },
-        "Status": { select: { name: "🟡 PENDING_APPROVAL" } }
-      }
-    };
-
-    const notionCreateRes = await fetch(`https://api.notion.com/v1/pages`, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
-      body: JSON.stringify(createPayload)
-    });
-    const newPage = await notionCreateRes.json();
-    if (!notionCreateRes.ok) throw new Error("SEEKER_DISPATCH_FAILED");
-
-    // --- STAGE 3: THE STRATEGIST (FORENSICS + PITCH) ---
-    stage = "STRATEGIC_ANALYSIS";
-    let profileContext = "Highly skilled developer.";
-    if (userProfileId) {
-      const pRes = await fetch(`https://api.notion.com/v1/pages/${userProfileId}`, {
-        headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28" }
+    // --- STAGE A: THE COMMIT HANDLER ---
+    if (mode === "COMMIT") {
+      stage = "SYNDICATION_COMMIT";
+      
+      // Update basic properties (Status/Score/Pitch)
+      await fetch(`https://api.notion.com/v1/pages/${targetPageId}`, {
+        method: "PATCH",
+        headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
+        body: JSON.stringify({
+          properties: {
+            "Status": { select: { name: finalIntel.verdict } },
+            "Match Score": { number: finalIntel.score / 100 },
+            "Pitch": { rich_text: [{ text: { content: finalIntel.cloned_pitch } }] }
+          }
+        })
       });
-      if (pRes.ok) profileContext = JSON.stringify((await pRes.json()).properties);
+
+      // Append approved blocks
+      await fetch(`https://api.notion.com/v1/blocks/${targetPageId}/children`, {
+        method: "PATCH",
+        headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
+        body: JSON.stringify({
+          children: [
+            { object: "block", type: "callout", callout: { icon: { emoji: "🧠" }, color: "blue_background", rich_text: [{ type: "text", text: { content: "Approved Strategic Insight: ", link: null }, annotations: { bold: true } }, { type: "text", text: { content: finalIntel.mentor_insight } }] } },
+            { object: "block", type: "callout", callout: { icon: { emoji: "📄" }, color: "gray_background", rich_text: [{ type: "text", text: { content: "Resume Strategy: ", link: null }, annotations: { bold: true } }, { type: "text", text: { content: finalIntel.resume_strategy } }] } },
+            { object: "block", type: "heading_3", heading_3: { rich_text: [{ type: "text", text: { content: "✍️ Finalized Pitch" } }] } },
+            { object: "block", type: "quote", quote: { rich_text: [{ type: "text", text: { content: finalIntel.cloned_pitch } }] } }
+          ]
+        })
+      });
+
+      return NextResponse.json({ success: true });
     }
 
+    // --- STAGE B: THE PREVIEW HANDLER ---
+    stage = "UPLINK_SETUP";
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    stage = "CONTEXT_GATHERING";
+    const [profileRes, memoryRes] = await Promise.all([
+      fetch(`https://api.notion.com/v1/pages/${userProfileId}`, { headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28" } }),
+      memoryResIdFetch(notionToken, memoryPageId)
+    ]);
+
+    const profileData = await profileRes.json();
+    const memoryData = memoryRes;
+
+    stage = "TARGET_SEARCH";
+    const queryRes = await fetch(`https://api.notion.com/v1/databases/${pageId}/query`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
+      body: JSON.stringify({ filter: { property: "Status", select: { is_empty: true } }, page_size: 1 })
+    });
+    const queryData = await queryRes.json();
+    const targetPage = queryData.results?.[0];
+
+    if (!targetPage) throw new Error("No pending leads found in your Notion Ledger.");
+
+    stage = "AI_PREVIEW_GENERATION";
     const prompt = `
-      ROLE: Notion Career Agent (NCA).
-      SOURCE: Hacker News (${hnJob.title})
-      USER_CONTEXT: ${profileContext}
-      TASK: Perform forensics and write a pitch.
-      RETURN RAW JSON ONLY: { "tag": "🟢 VERIFIED", "score": 88, "insight": "...", "pitch": "..." }
+      ROLE: Elite Career Architect. Generate a PREVIEW analysis for a job application.
+      USER_PROFILE: ${JSON.stringify(profileData.properties)}
+      USER_VOICE: ${JSON.stringify(memoryData || "Professional")}
+      TARGET_JOB: ${JSON.stringify(targetPage.properties)}
+      
+      OUTPUT JSON:
+      {
+        "verdict": "🟢 Verified Match | 🟡 Strategic Reach",
+        "score": 90,
+        "mentor_insight": "A 2-sentence strategy.",
+        "resume_strategy": "Exactly what to tweak.",
+        "cloned_pitch": "A 3-sentence email pitch."
+      }
     `;
 
-    const aiRes = await model.generateContent(prompt);
-    const intel = JSON.parse(aiRes.response.text().replace(/```json/g, '').replace(/```/g, '').trim());
+    const aiResult = await model.generateContent(prompt);
+    const intel = JSON.parse(aiResult.response.text().replace(/```json/g, '').replace(/```/g, '').trim());
 
-    // --- STAGE 4: FINAL WRITEBACK ---
-    stage = "GUARDIAN_SYNC";
-    await fetch(`https://api.notion.com/v1/pages/${newPage.id}`, {
-      method: "PATCH",
-      headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
-      body: JSON.stringify({
-        properties: {
-          "Status": { select: { name: intel.tag } },
-          "Match Score": { number: intel.score / 100 },
-          "Tailored Pitch": { rich_text: [{ text: { content: intel.pitch } }] }
-        }
-      })
-    });
-
-    return NextResponse.json({ success: true, rowName: hnJob.title });
+    return NextResponse.json({ success: true, intel: { ...intel, targetPageId: targetPage.id } });
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message, failed_at: stage }, { status: 500 });
   }
+}
+
+async function memoryResIdFetch(token: string, id: string) {
+  if (!id) return null;
+  const res = await fetch(`https://api.notion.com/v1/pages/${id}`, { headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28" } });
+  return res.ok ? await res.json() : null;
 }
