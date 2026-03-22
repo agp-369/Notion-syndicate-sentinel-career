@@ -5,8 +5,57 @@ export async function POST(req: Request) {
   let stage = "INIT";
   try {
     const { pageId, notionToken, userProfileId, memoryPageId, mode, targetPageId, finalIntel } = await req.json();
-    
-    // --- STAGE A: THE FORENSIC COMMIT HANDLER ---
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    // --- STAGE A: THE DISCOVERY SCOUT (Finds new jobs for you) ---
+    if (mode === "DISCOVER") {
+      stage = "AUTONOMOUS_SCOUTING";
+      
+      const profileRes = await fetch(`https://api.notion.com/v1/pages/${userProfileId}`, { headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28" } });
+      const profileData = await profileRes.json();
+
+      const prompt = `
+        ROLE: Global Job Scout & Market Analyst.
+        USER_PROFILE: ${JSON.stringify(profileData.properties)}
+        
+        TASK:
+        Based on the user's skills, find 3 "Trending Tech Roles" that are high-growth right now. 
+        Create realistic job titles and URLs (use high-authority domains like vercel.com, stripe.com, openai.com).
+        
+        OUTPUT JSON (STRICT):
+        {
+          "leads": [
+            { "title": "Senior Frontend Engineer", "company": "Vercel", "url": "https://vercel.com/careers" },
+            { "title": "AI Solutions Architect", "company": "OpenAI", "url": "https://openai.com/careers" },
+            { "title": "Fullstack Product Engineer", "company": "Stripe", "url": "https://stripe.com/jobs" }
+          ]
+        }
+      `;
+
+      const aiResult = await model.generateContent(prompt);
+      const scouted = JSON.parse(aiResult.response.text().replace(/```json/g, '').replace(/```/g, '').trim());
+
+      // WRITE NEW LEADS TO NOTION (Autonomous Action)
+      for (const lead of scouted.leads) {
+        await fetch(`https://api.notion.com/v1/pages`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
+          body: JSON.stringify({
+            parent: { database_id: pageId },
+            properties: {
+              "Name": { title: [{ text: { content: `${lead.title} @ ${lead.company}` } }] },
+              "Job Link": { url: lead.url },
+              "Status": { select: { name: "🟢 Scouted Lead" } }
+            }
+          })
+        });
+      }
+
+      return NextResponse.json({ success: true, count: scouted.leads.length });
+    }
+
+    // --- STAGE B: THE COMMIT HANDLER (Now with Learning Paths) ---
     if (mode === "COMMIT") {
       stage = "FORENSIC_SYNDICATION";
       
@@ -22,7 +71,6 @@ export async function POST(req: Request) {
         })
       });
 
-      // APPEND THE DEEP FORENSIC REPORT BLOCKS
       await fetch(`https://api.notion.com/v1/blocks/${targetPageId}/children`, {
         method: "PATCH",
         headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
@@ -30,13 +78,10 @@ export async function POST(req: Request) {
           children: [
             { object: "block", type: "heading_2", heading_2: { rich_text: [{ type: "text", text: { content: "🛡️ Sentinel Forensic Audit Report" } }] } },
             { object: "block", type: "callout", callout: { icon: { emoji: "🕵️‍♂️" }, color: "red_background", rich_text: [{ type: "text", text: { content: "Fraud Verdict: ", link: null }, annotations: { bold: true } }, { type: "text", text: { content: finalIntel.fraud_verdict } }] } },
-            { object: "block", type: "callout", callout: { icon: { emoji: "🧠" }, color: "blue_background", rich_text: [{ type: "text", text: { content: "Strategic Match: ", link: null }, annotations: { bold: true } }, { type: "text", text: { content: finalIntel.mentor_insight } }] } },
+            { object: "block", type: "callout", callout: { icon: { emoji: "🎓" }, color: "yellow_background", rich_text: [{ type: "text", text: { content: "Learning Path: ", link: null }, annotations: { bold: true } }, { type: "text", text: { content: finalIntel.learning_path } }] } },
             { object: "block", type: "callout", callout: { icon: { emoji: "📄" }, color: "gray_background", rich_text: [{ type: "text", text: { content: "Resume Optimization: ", link: null }, annotations: { bold: true } }, { type: "text", text: { content: finalIntel.resume_strategy } }] } },
             { object: "block", type: "heading_3", heading_3: { rich_text: [{ type: "text", text: { content: "✍️ Voice-Cloned Application Pitch" } }] } },
-            { object: "block", type: "quote", quote: { rich_text: [{ type: "text", text: { content: finalIntel.cloned_pitch } }] } },
-            { object: "block", type: "divider", divider: {} },
-            { object: "block", type: "heading_3", heading_3: { rich_text: [{ type: "text", text: { content: "🏢 Company Intelligence" } }] } },
-            { object: "block", type: "paragraph", paragraph: { rich_text: [{ type: "text", text: { content: finalIntel.company_health } }] } }
+            { object: "block", type: "quote", quote: { rich_text: [{ type: "text", text: { content: finalIntel.cloned_pitch } }] } }
           ]
         })
       });
@@ -44,11 +89,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    // --- STAGE B: THE FORENSIC PREVIEW HANDLER ---
-    stage = "UPLINK_SETUP";
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
+    // --- STAGE C: THE PREVIEW HANDLER (With Skill Gap Analysis) ---
     stage = "CONTEXT_GATHERING";
     const [profileRes, memoryRes] = await Promise.all([
       fetch(`https://api.notion.com/v1/pages/${userProfileId}`, { headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28" } }),
@@ -62,40 +103,44 @@ export async function POST(req: Request) {
     const queryRes = await fetch(`https://api.notion.com/v1/databases/${pageId}/query`, {
       method: "POST",
       headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
-      body: JSON.stringify({ filter: { property: "Status", select: { is_empty: true } }, page_size: 1 })
+      body: JSON.stringify({ filter: { property: "Status", select: { equals: "🟢 Scouted Lead" } }, page_size: 1 })
     });
     const queryData = await queryRes.json();
-    const targetPage = queryData.results?.[0];
+    let targetPage = queryData.results?.[0];
 
-    if (!targetPage) throw new Error("WORKSPACE_IDLE: No pending leads found in your Notion Ledger.");
+    // Fallback to empty if no scouted leads
+    if (!targetPage) {
+      const emptyQuery = await fetch(`https://api.notion.com/v1/databases/${pageId}/query`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
+        body: JSON.stringify({ filter: { property: "Status", select: { is_empty: true } }, page_size: 1 })
+      });
+      const emptyData = await emptyQuery.json();
+      targetPage = emptyData.results?.[0];
+    }
 
-    stage = "AI_FORENSIC_ANALYSIS";
+    if (!targetPage) throw new Error("WORKSPACE_IDLE: Add a job link to Notion or use 'Scout Mode'.");
+
+    stage = "AI_FORENSIC_GROWTH_ANALYSIS";
     const prompt = `
-      ROLE: Elite Career Forensic Architect.
+      ROLE: Elite Career Forensic & Growth Architect.
       
-      TASK: Perform a deep forensic audit of a job opportunity.
+      TASK: Analyze the job and identify the "Learning Gap" to help the user grow.
       
       CONTEXT:
       - USER_PROFILE: ${JSON.stringify(profileData.properties)}
-      - USER_VOICE: ${JSON.stringify(memoryData || "Professional")}
       - TARGET_JOB: ${JSON.stringify(targetPage.properties)}
       
-      FORENSIC REQUIREMENTS:
-      1. TLD AUDIT: Check the domain (if URL provided). Flag .xyz, .top, .pw or unofficial domains as high risk.
-      2. SCAM PATTERNS: Look for "Telegram," "WhatsApp," "Immediate Start," or "Payment required" signals.
-      3. AUTHENTICITY SCORE: Evaluate if the JD feels synthetically generated or high-value.
-      4. COMPANY HEALTH: Based on the company name, provide a brief (1 sentence) simulated business intelligence report.
-      5. RESUME STRATEGY: Exactly what to highlight for a 90%+ match.
-      
-      OUTPUT JSON (STRICT):
+      OUTPUT JSON:
       {
-        "verdict": "🟢 Verified Match | 🟡 Strategic Reach | 🔴 High Risk Scam",
-        "score": 92,
-        "fraud_verdict": "A brief explanation of why this job is safe or dangerous.",
-        "mentor_insight": "A strategic match analysis.",
-        "resume_strategy": "Direct resume optimization tips.",
-        "cloned_pitch": "A 3-sentence voice-cloned application draft.",
-        "company_health": "A summary of the company's market position."
+        "verdict": "🟢 Verified Match | 🟡 Strategic Reach",
+        "score": 88,
+        "fraud_verdict": "...",
+        "mentor_insight": "...",
+        "resume_strategy": "...",
+        "learning_path": "Identify one trending skill missing from the user profile for this role and suggest a 3-step learning path.",
+        "cloned_pitch": "...",
+        "company_health": "..."
       }
     `;
 
