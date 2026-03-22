@@ -30,12 +30,12 @@ export default function RootLayout({
           <header className="fixed top-6 right-8 z-[100] flex gap-4 items-center">
             <SignedOut>
               <div className="bg-slate-950 text-white px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest shadow-2xl active:scale-95 transition-all">
-                <SignInButton />
+                <SignInButton mode="modal" />
               </div>
             </SignedOut>
             <SignedIn>
               <div className="bg-white/80 backdrop-blur-xl border border-slate-100 p-1 rounded-full shadow-2xl flex items-center gap-3 pr-4">
-                <UserButton afterSignOutUrl="/" />
+                <UserButton />
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sovereign Node</span>
               </div>
             </SignedIn>

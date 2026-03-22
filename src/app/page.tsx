@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, ShieldCheck, Users, GraduationCap, DatabaseZap, Search, HeartHandshake, Lock, ArrowRight } from "lucide-react";
+import { ShieldCheck, Users, GraduationCap, DatabaseZap, Search, HeartHandshake, Lock, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 
@@ -26,10 +26,10 @@ export default function Home() {
             <h1 className="text-7xl font-black tracking-tighter text-slate-950 uppercase leading-none">Syndicate<br/>Sentinel</h1>
             <p className="text-sm font-bold text-indigo-500 uppercase tracking-[0.5em]">Enterprise Career Intelligence</p>
           </div>
-          <p className="text-slate-500 font-medium leading-relaxed italic">"A Sovereign Forensic OS for the Modern Professional. Authentication required to access private career manifolds."</p>
+          <p className="text-slate-500 font-medium leading-relaxed italic text-balance">"A Sovereign Forensic OS for the Modern Professional. Authentication required to access private career manifolds."</p>
           <div className="w-full max-w-xs pt-8">
             <div className="w-full py-5 bg-slate-950 text-white rounded-3xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 shadow-2xl active:scale-95 transition-all cursor-pointer">
-              <SignInButton /> <ArrowRight size={16} />
+              <SignInButton mode="modal" /> <ArrowRight size={16} />
             </div>
           </div>
         </motion.div>
@@ -38,23 +38,14 @@ export default function Home() {
       {/* --- SOVEREIGN COCKPIT FOR AUTHENTICATED USERS --- */}
       <SignedIn>
         <div className="max-w-6xl w-full space-y-16 relative z-10">
-          
-          {/* BOLD TYPOGRAPHY HEADER */}
           <header className="flex flex-col md:flex-row items-center justify-between gap-8 border-b-2 border-slate-100 pb-12">
             <div className="space-y-2 text-left">
               <h1 className="text-6xl font-black tracking-tighter text-slate-950 uppercase leading-none">Syndicate<br/>Sentinel</h1>
               <p className="text-xs font-bold text-indigo-500 uppercase tracking-[0.5em]">The Sovereign Career OS</p>
             </div>
-            
             <nav className="flex bg-slate-100 p-2 rounded-3xl gap-2">
               {["DASHBOARD", "FORENSICS", "TALENT", "MENTORSHIP"].map((tab) => (
-                <button 
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? "bg-white text-indigo-600 shadow-xl" : "text-slate-400 hover:text-slate-600"}`}
-                >
-                  {tab}
-                </button>
+                <button key={tab} onClick={() => setActiveTab(tab)} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? "bg-white text-indigo-600 shadow-xl" : "text-slate-400 hover:text-slate-600"}`}>{tab}</button>
               ))}
             </nav>
           </header>
@@ -71,7 +62,6 @@ export default function Home() {
                       <button onClick={() => setActiveTab("FORENSICS")} className="w-full py-4 bg-white text-indigo-600 rounded-2xl font-black text-[10px] uppercase tracking-widest">Launch Sentinel</button>
                     </div>
                   </div>
-                  
                   <div className="p-10 bg-slate-950 text-white rounded-[3rem] shadow-2xl flex flex-col justify-between group hover:scale-[1.02] transition-transform">
                     <Users size={48} strokeWidth={2.5} />
                     <div className="space-y-4 text-left">
@@ -80,7 +70,6 @@ export default function Home() {
                       <button onClick={() => setActiveTab("TALENT")} className="w-full py-4 bg-white text-slate-950 rounded-2xl font-black text-[10px] uppercase tracking-widest">Open Directory</button>
                     </div>
                   </div>
-
                   <div className="p-10 bg-blue-500 text-white rounded-[3rem] shadow-2xl flex flex-col justify-between group hover:scale-[1.02] transition-transform">
                     <GraduationCap size={48} strokeWidth={2.5} />
                     <div className="space-y-4 text-left">
@@ -91,16 +80,13 @@ export default function Home() {
                   </div>
                 </motion.div>
               )}
-              {/* Other tabs remain similar but wrapped in SignedIn logic */}
             </AnimatePresence>
           </main>
-
           <footer className="text-center pt-12 border-t-2 border-slate-100">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.8em]">Syndicate Sentinel // Sovereign Career OS v5.5</p>
           </footer>
         </div>
       </SignedIn>
-
     </div>
   );
 }
