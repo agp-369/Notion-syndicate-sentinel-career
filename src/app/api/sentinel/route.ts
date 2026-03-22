@@ -4,158 +4,81 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   let stage = "INIT";
   try {
-    const { pageId, notionToken, userProfileId, memoryPageId, mode, targetPageId, finalIntel } = await req.json();
+    const { mode, notionToken, dbIds, payload } = await req.json();
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    // --- STAGE A: THE DISCOVERY SCOUT (Finds new jobs for you) ---
-    if (mode === "DISCOVER") {
-      stage = "AUTONOMOUS_SCOUTING";
-      
-      const profileRes = await fetch(`https://api.notion.com/v1/pages/${userProfileId}`, { headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28" } });
-      const profileData = await profileRes.json();
+    // --- MODULE 1: FORENSIC SENTINEL (Job Audits) ---
+    if (mode === "FORENSIC_AUDIT") {
+      stage = "FORENSIC_CONTEXT";
+      const targetJobId = payload.targetJobId;
+      const jobRes = await fetch(`https://api.notion.com/v1/pages/${targetJobId}`, { headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28" } });
+      const jobData = await jobRes.json();
 
       const prompt = `
-        ROLE: Global Job Scout & Market Analyst.
-        USER_PROFILE: ${JSON.stringify(profileData.properties)}
+        ROLE: Career Forensic Specialist. 
+        Perform a Deep Audit of this Job: ${JSON.stringify(jobData.properties)}
+        Check: TLD Safety, Scam Patterns, Authenticity Score (0-100).
         
-        TASK:
-        Based on the user's skills, find 3 "Trending Tech Roles" that are high-growth right now. 
-        Create realistic job titles and URLs (use high-authority domains like vercel.com, stripe.com, openai.com).
-        
-        OUTPUT JSON (STRICT):
-        {
-          "leads": [
-            { "title": "Senior Frontend Engineer", "company": "Vercel", "url": "https://vercel.com/careers" },
-            { "title": "AI Solutions Architect", "company": "OpenAI", "url": "https://openai.com/careers" },
-            { "title": "Fullstack Product Engineer", "company": "Stripe", "url": "https://stripe.com/jobs" }
-          ]
-        }
+        OUTPUT JSON: { "verdict": "Verified | Suspicious | Scam", "score": 85, "reasoning": "...", "trust_score": 92 }
       `;
-
       const aiResult = await model.generateContent(prompt);
-      const scouted = JSON.parse(aiResult.response.text().replace(/```json/g, '').replace(/```/g, '').trim());
+      const intel = JSON.parse(aiResult.response.text().replace(/```json/g, '').replace(/```/g, '').trim());
 
-      // WRITE NEW LEADS TO NOTION (Autonomous Action)
-      for (const lead of scouted.leads) {
-        await fetch(`https://api.notion.com/v1/pages`, {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
-          body: JSON.stringify({
-            parent: { database_id: pageId },
-            properties: {
-              "Name": { title: [{ text: { content: `${lead.title} @ ${lead.company}` } }] },
-              "Job Link": { url: lead.url },
-              "Status": { select: { name: "🟢 Scouted Lead" } }
-            }
-          })
-        });
-      }
-
-      return NextResponse.json({ success: true, count: scouted.leads.length });
+      return NextResponse.json({ success: true, intel });
     }
 
-    // --- STAGE B: THE COMMIT HANDLER (Now with Learning Paths) ---
-    if (mode === "COMMIT") {
-      stage = "FORENSIC_SYNDICATION";
+    // --- MODULE 2: TALENT MATCHMAKER (Mentorship Pairing) ---
+    if (mode === "TALENT_MATCH") {
+      stage = "MENTORSHIP_PAIRING";
+      const talentDbId = dbIds.talent;
+      const talentQuery = await fetch(`https://api.notion.com/v1/databases/${talentDbId}/query`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28" }
+      });
+      const talentData = await talentQuery.json();
+
+      const prompt = `
+        ROLE: HR Intelligence Agent. Pair Mentors and Mentees from this directory: ${JSON.stringify(talentData.results)}
+        Match based on skills and goals. Provide a match confidence score.
+        
+        OUTPUT JSON: { "pairs": [ { "mentor": "...", "mentee": "...", "confidence": 95, "reason": "..." } ] }
+      `;
+      const aiResult = await model.generateContent(prompt);
+      const pairing = JSON.parse(aiResult.response.text().replace(/```json/g, '').replace(/```/g, '').trim());
+
+      return NextResponse.json({ success: true, pairing });
+    }
+
+    // --- MODULE 3: THE ALCHEMIST (Syllabus & Page Generation) ---
+    if (mode === "GENERATE_SYLLABUS") {
+      stage = "AUTONOMOUS_ORCHESTRATION";
+      const { mentorId, menteeId, topic } = payload;
       
-      await fetch(`https://api.notion.com/v1/pages/${targetPageId}`, {
-        method: "PATCH",
-        headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
-        body: JSON.stringify({
-          properties: {
-            "Status": { select: { name: finalIntel.verdict } },
-            "Match Score": { number: finalIntel.score / 100 },
-            "Pitch": { rich_text: [{ text: { content: finalIntel.cloned_pitch } }] }
-          }
-        })
-      });
+      const prompt = `Generate a high-fidelity, 90-day mentorship syllabus for ${topic}. Break it into Month 1, 2, and 3 with weekly goals.`;
+      const aiResult = await model.generateContent(prompt);
+      const syllabus = aiResult.response.text();
 
-      await fetch(`https://api.notion.com/v1/blocks/${targetPageId}/children`, {
-        method: "PATCH",
-        headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
-        body: JSON.stringify({
-          children: [
-            { object: "block", type: "heading_2", heading_2: { rich_text: [{ type: "text", text: { content: "🛡️ Sentinel Forensic Audit Report" } }] } },
-            { object: "block", type: "callout", callout: { icon: { emoji: "🕵️‍♂️" }, color: "red_background", rich_text: [{ type: "text", text: { content: "Fraud Verdict: ", link: null }, annotations: { bold: true } }, { type: "text", text: { content: finalIntel.fraud_verdict } }] } },
-            { object: "block", type: "callout", callout: { icon: { emoji: "🎓" }, color: "yellow_background", rich_text: [{ type: "text", text: { content: "Learning Path: ", link: null }, annotations: { bold: true } }, { type: "text", text: { content: finalIntel.learning_path } }] } },
-            { object: "block", type: "callout", callout: { icon: { emoji: "📄" }, color: "gray_background", rich_text: [{ type: "text", text: { content: "Resume Optimization: ", link: null }, annotations: { bold: true } }, { type: "text", text: { content: finalIntel.resume_strategy } }] } },
-            { object: "block", type: "heading_3", heading_3: { rich_text: [{ type: "text", text: { content: "✍️ Voice-Cloned Application Pitch" } }] } },
-            { object: "block", type: "quote", quote: { rich_text: [{ type: "text", text: { content: finalIntel.cloned_pitch } }] } }
-          ]
-        })
-      });
-
-      return NextResponse.json({ success: true });
-    }
-
-    // --- STAGE C: THE PREVIEW HANDLER (With Skill Gap Analysis) ---
-    stage = "CONTEXT_GATHERING";
-    const [profileRes, memoryRes] = await Promise.all([
-      fetch(`https://api.notion.com/v1/pages/${userProfileId}`, { headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28" } }),
-      memoryResIdFetch(notionToken, memoryPageId)
-    ]);
-
-    const profileData = await profileRes.json();
-    const memoryData = memoryRes;
-
-    stage = "TARGET_SEARCH";
-    const queryRes = await fetch(`https://api.notion.com/v1/databases/${pageId}/query`, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
-      body: JSON.stringify({ filter: { property: "Status", select: { equals: "🟢 Scouted Lead" } }, page_size: 1 })
-    });
-    const queryData = await queryRes.json();
-    let targetPage = queryData.results?.[0];
-
-    // Fallback to empty if no scouted leads
-    if (!targetPage) {
-      const emptyQuery = await fetch(`https://api.notion.com/v1/databases/${pageId}/query`, {
+      // Create a NEW Notion Page for the Mentorship Workspace
+      const newPageRes = await fetch(`https://api.notion.com/v1/pages`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${notionToken}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
-        body: JSON.stringify({ filter: { property: "Status", select: { is_empty: true } }, page_size: 1 })
+        body: JSON.stringify({
+          parent: { database_id: dbIds.mentorship },
+          properties: { "Name": { title: [{ text: { content: `🤝 Workspace: ${topic}` } }] } },
+          children: [
+            { object: "block", type: "heading_1", heading_1: { rich_text: [{ type: "text", text: { content: "🚀 90-Day Learning Path" } }] } },
+            { object: "block", type: "paragraph", paragraph: { rich_text: [{ type: "text", text: { content: syllabus } }] } }
+          ]
+        })
       });
-      const emptyData = await emptyQuery.json();
-      targetPage = emptyData.results?.[0];
+
+      return NextResponse.json({ success: true, page: await newPageRes.json() });
     }
 
-    if (!targetPage) throw new Error("WORKSPACE_IDLE: Add a job link to Notion or use 'Scout Mode'.");
-
-    stage = "AI_FORENSIC_GROWTH_ANALYSIS";
-    const prompt = `
-      ROLE: Elite Career Forensic & Growth Architect.
-      
-      TASK: Analyze the job and identify the "Learning Gap" to help the user grow.
-      
-      CONTEXT:
-      - USER_PROFILE: ${JSON.stringify(profileData.properties)}
-      - TARGET_JOB: ${JSON.stringify(targetPage.properties)}
-      
-      OUTPUT JSON:
-      {
-        "verdict": "🟢 Verified Match | 🟡 Strategic Reach",
-        "score": 88,
-        "fraud_verdict": "...",
-        "mentor_insight": "...",
-        "resume_strategy": "...",
-        "learning_path": "Identify one trending skill missing from the user profile for this role and suggest a 3-step learning path.",
-        "cloned_pitch": "...",
-        "company_health": "..."
-      }
-    `;
-
-    const aiResult = await model.generateContent(prompt);
-    const intel = JSON.parse(aiResult.response.text().replace(/```json/g, '').replace(/```/g, '').trim());
-
-    return NextResponse.json({ success: true, intel: { ...intel, targetPageId: targetPage.id } });
+    return NextResponse.json({ error: "INVALID_MODE" }, { status: 400 });
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message, failed_at: stage }, { status: 500 });
   }
-}
-
-async function memoryResIdFetch(token: string, id: string) {
-  if (!id) return null;
-  const res = await fetch(`https://api.notion.com/v1/pages/${id}`, { headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28" } });
-  return res.ok ? await res.json() : null;
 }
