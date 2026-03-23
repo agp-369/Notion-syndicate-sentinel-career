@@ -1,35 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import { ShieldCheck, Users, GraduationCap, Lock, ArrowRight, Loader2, Sparkles, Send, ExternalLink } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ShieldCheck, Users, GraduationCap, Lock, ArrowRight, Loader2, Sparkles, UserCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth, SignInButton } from "@clerk/nextjs";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("DASHBOARD");
   const [isSyncing, setIsSyncing] = useState(false);
-  const [workspaceUrl, setWorkspaceUrl] = useState("");
+  const [userProfile, setUserProfile] = useState<any>(null);
   const { isLoaded, userId } = useAuth();
 
-  const runAgenticSync = async () => {
+  // 1. AUTOMATIC PROFILE SYNC UPON LOGIN
+  useEffect(() => {
+    if (userId) syncSovereignProfile();
+  }, [userId]);
+
+  const syncSovereignProfile = async () => {
     setIsSyncing(true);
-    setWorkspaceUrl("");
     try {
       const res = await fetch("/api/sentinel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          mode: "AGENTIC_SYNC",
-          dbIds: { talent: "f80891f4b35c4857b71fcb17bb5cfda4", mentorship: "f80891f4b35c4857b71fcb17bb5cfda4" },
-          payload: { prompt: "Find a mentor for our junior dev and create their 90-day plan." }
-        })
+        body: JSON.stringify({ mode: "SYNC_PROFILE", dbIds: { talent: "f80891f4b35c4857b71fcb17bb5cfda4" } })
       });
       const data = await res.json();
-      if (data.success) {
-        setWorkspaceUrl(data.pageUrl);
-      }
+      if (data.success) setUserProfile(data.profile);
     } catch (e) {
-      alert("Agentic handshake failed.");
+      console.error("Profile handshake failed.");
     } finally {
       setIsSyncing(false);
     }
@@ -48,7 +46,7 @@ export default function Home() {
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center text-center space-y-12 mt-20 max-w-2xl relative z-10">
           <div className="w-24 h-24 bg-slate-950 text-white rounded-[2.5rem] flex items-center justify-center shadow-2xl"><Lock size={40} /></div>
           <div className="space-y-4">
-            <h1 className="text-7xl font-black tracking-tighter text-slate-950 uppercase leading-none text-balance">Syndicate<br/>Sentinel</h1>
+            <h1 className="text-7xl font-black tracking-tighter text-slate-950 uppercase leading-none">Syndicate<br/>Sentinel</h1>
             <p className="text-sm font-bold text-indigo-500 uppercase tracking-[0.5em]">Enterprise Career Intelligence</p>
           </div>
           <div className="w-full max-w-xs pt-8">
@@ -59,10 +57,17 @@ export default function Home() {
         </motion.div>
       ) : (
         <div className="max-w-6xl w-full space-y-16 relative z-10">
+          
           <header className="flex flex-col md:flex-row items-center justify-between gap-8 border-b-2 border-slate-100 pb-12 text-left">
             <div className="space-y-2">
               <h1 className="text-6xl font-black tracking-tighter text-slate-950 uppercase leading-none">Sovereign<br/>Command</h1>
-              <p className="text-xs font-bold text-indigo-500 uppercase tracking-[0.5em]">Active Agentic Node: Online</p>
+              <div className="flex items-center gap-3 mt-4">
+                <div className="px-4 py-2 bg-indigo-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-indigo-200">
+                  <UserCircle size={14} />
+                  {isSyncing ? "Syncing..." : userProfile?.properties?.Name?.title[0]?.plain_text || "Guest Node"}
+                </div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Status: Authorized</p>
+              </div>
             </div>
             <nav className="flex bg-slate-100 p-2 rounded-3xl gap-2 font-black text-[10px] uppercase">
               {["DASHBOARD", "FORENSICS", "ALCHEMIST"].map((tab) => (
@@ -75,30 +80,23 @@ export default function Home() {
             <AnimatePresence mode="wait">
               {activeTab === "DASHBOARD" && (
                 <motion.div key="dash" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="p-12 bg-indigo-600 text-white rounded-[4rem] shadow-2xl space-y-8 flex flex-col justify-between">
+                  {/* FORENSIC CARD */}
+                  <div className="p-12 bg-indigo-600 text-white rounded-[4rem] shadow-2xl space-y-8 flex flex-col justify-between group hover:scale-[1.01] transition-transform">
                     <ShieldCheck size={64} strokeWidth={2.5} />
                     <div className="space-y-4">
-                      <h2 className="text-4xl font-black leading-tight text-left">Forensic<br/>Job Audit</h2>
-                      <p className="text-sm font-medium text-indigo-100 opacity-80 text-left">AI scans the job board manifold for scams and authenticity scores.</p>
+                      <h2 className="text-4xl font-black leading-tight text-left">Forensic<br/>Audit Node</h2>
+                      <p className="text-sm font-medium text-indigo-100 opacity-80 text-left">AI scans the job board manifold for scams and authenticity scores synced to your profile.</p>
                       <button className="w-full py-5 bg-white text-indigo-600 rounded-3xl font-black uppercase tracking-widest text-xs active:scale-95 transition-all">Launch Sentinel</button>
                     </div>
                   </div>
                   
-                  <div className="p-12 bg-slate-950 text-white rounded-[4rem] shadow-2xl space-y-8 flex flex-col justify-between">
+                  {/* ALCHEMIST CARD */}
+                  <div className="p-12 bg-slate-950 text-white rounded-[4rem] shadow-2xl space-y-8 flex flex-col justify-between group hover:scale-[1.01] transition-transform">
                     <GraduationCap size={64} strokeWidth={2.5} />
                     <div className="space-y-4 text-left">
-                      <h2 className="text-4xl font-black leading-tight">Learning<br/>Alchemist</h2>
-                      <p className="text-sm font-medium text-slate-400 opacity-80">Autonomous 90-day syllabus & workspace generation via MCP.</p>
-                      
-                      {workspaceUrl ? (
-                        <a href={workspaceUrl} target="_blank" className="w-full py-5 bg-emerald-500 text-white rounded-3xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">
-                          Open New Workspace <ExternalLink size={16} />
-                        </a>
-                      ) : (
-                        <button onClick={runAgenticSync} disabled={isSyncing} className="w-full py-5 bg-white text-slate-950 rounded-3xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 active:scale-95 transition-all">
-                          {isSyncing ? <Loader2 className="animate-spin" /> : <><Sparkles size={18} /> Initiate Agentic Match</>}
-                        </button>
-                      )}
+                      <h2 className="text-4xl font-black leading-tight">Growth<br/>Alchemist</h2>
+                      <p className="text-sm font-medium text-slate-400 opacity-80">Autonomous 90-day syllabus generation. Currently tracking: 0 active paths.</p>
+                      <button className="w-full py-5 bg-white text-slate-950 rounded-3xl font-black uppercase tracking-widest text-xs active:scale-95 transition-all">Synthesize Path</button>
                     </div>
                   </div>
                 </motion.div>
@@ -107,7 +105,7 @@ export default function Home() {
           </main>
 
           <footer className="text-center pt-12 border-t-2 border-slate-100">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.8em]">Syndicate Sentinel // Sovereign OS v6.0</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.8em]">Syndicate Sentinel // Sovereign OS v6.5</p>
           </footer>
         </div>
       )}
