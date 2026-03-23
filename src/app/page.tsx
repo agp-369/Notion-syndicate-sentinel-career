@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { ShieldCheck, GraduationCap, Lock, ArrowRight, Loader2, Sparkles, ExternalLink, Zap, Terminal, Activity, CheckCircle2, Command, Users, BarChart3, Fingerprint, Mic, Moon, Sun, Briefcase, Award, TrendingUp } from "lucide-react";
+import { ShieldCheck, GraduationCap, Lock, ArrowRight, Loader2, Sparkles, ExternalLink, Zap, Terminal, Activity, CheckCircle2, Command, Users, BarChart3, Fingerprint, Mic, Moon, Sun, Briefcase, Award, TrendingUp, Trophy } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth, SignInButton, UserButton } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
@@ -15,7 +15,6 @@ function DashboardContent() {
   const [isNotionConnected, setIsNotionConnected] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   
-  // 🌓 EMOTIONALLY AWARE MODE (Time-based)
   const [uiMode, setUiMode] = useState<"MORNING" | "FOCUS">("MORNING");
 
   const { isLoaded, userId } = useAuth();
@@ -53,11 +52,9 @@ function DashboardContent() {
   return (
     <div className={`min-h-screen transition-colors duration-1000 p-4 md:p-8 flex flex-col items-center relative overflow-hidden ${uiMode === "MORNING" ? "bg-[#F8FAFC]" : "bg-[#0F172A]"}`}>
       
-      {/* SPATIAL DEPTH BLURS */}
       <div className={`absolute top-[-10%] left-[-10%] w-[70%] h-[70%] blur-[120px] rounded-full animate-pulse opacity-40 ${uiMode === "MORNING" ? "bg-indigo-200" : "bg-indigo-900"}`} />
       <div className={`absolute bottom-[-10%] right-[-10%] w-[70%] h-[70%] blur-[120px] rounded-full opacity-40 ${uiMode === "MORNING" ? "bg-blue-200" : "bg-blue-900"}`} />
 
-      {/* 📡 THE MACHINE EXPERIENCE (MX) SYNC OVERLAY */}
       <AnimatePresence>
         {isThinking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] bg-slate-950/60 backdrop-blur-xl flex items-center justify-center p-6">
@@ -89,8 +86,6 @@ function DashboardContent() {
         </motion.div>
       ) : (
         <div className="max-w-7xl w-full space-y-8 relative z-10">
-          
-          {/* NAVIGATION BAR */}
           <header className="liquid-glass p-4 rounded-[2.5rem] flex items-center justify-between">
             <div className="flex items-center gap-4 pl-4 text-left">
               <div className="w-12 h-12 bg-slate-950 rounded-2xl flex items-center justify-center text-white shadow-xl"><Fingerprint size={24} /></div>
@@ -113,11 +108,7 @@ function DashboardContent() {
           </header>
 
           <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-[700px]">
-            
-            {/* 🎯 LEFT COLUMN: ANALYTICS & HUB */}
             <div className="lg:col-span-4 space-y-8">
-              
-              {/* EXAGGERATED HIERARCHY CARD */}
               <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="liquid-glass p-10 rounded-[4rem] text-left space-y-4">
                 <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Skills Gaps Identified</p>
                 <h2 className={`text-[10rem] font-black tracking-tighter leading-none ${uiMode === "MORNING" ? "text-slate-950" : "text-white"}`}>08</h2>
@@ -127,18 +118,13 @@ function DashboardContent() {
                 </div>
               </motion.div>
 
-              {/* MULTIMODAL VOICE COMPONENT */}
               <div className="liquid-glass p-10 rounded-[4rem] space-y-8 text-left">
                 <div className="space-y-2">
                   <h3 className={`text-3xl font-black uppercase tracking-tighter ${uiMode === "MORNING" ? "text-slate-950" : "text-white"}`}>Voice Sync</h3>
                   <p className="text-xs font-medium text-slate-400 leading-relaxed italic">"Dictate meeting notes directly to Notion workspace via Intent-Driven AI."</p>
                 </div>
                 <div className="flex justify-center py-4">
-                  <motion.button 
-                    animate={isRecording ? { scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] } : {}}
-                    onClick={() => setIsRecording(!isRecording)}
-                    className="w-24 h-24 bg-slate-950 text-white rounded-full flex items-center justify-center shadow-3xl active:scale-90 transition-all cursor-pointer relative"
-                  >
+                  <motion.button animate={isRecording ? { scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] } : {}} onClick={() => setIsRecording(!isRecording)} className="w-24 h-24 bg-slate-950 text-white rounded-full flex items-center justify-center shadow-3xl active:scale-90 transition-all cursor-pointer relative">
                     {isRecording && <div className="absolute inset-0 rounded-full border-4 border-indigo-500 animate-ping" />}
                     <Mic size={32} />
                   </motion.button>
@@ -147,21 +133,16 @@ function DashboardContent() {
               </div>
             </div>
 
-            {/* 🔮 RIGHT COLUMN: MATCHMAKER & PATHWAY */}
-            <div className="lg:col-span-8 space-y-8">
-              
-              {/* INTENT-DRIVEN MATCHMAKER */}
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="liquid-glass p-12 rounded-[5rem] flex flex-col justify-between min-h-[450px] text-left border-indigo-500/20 shadow-indigo-500/10">
+            <div className="lg:col-span-8 space-y-8 text-left">
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="liquid-glass p-12 rounded-[5rem] flex flex-col justify-between min-h-[450px] border-indigo-500/20 shadow-indigo-500/10">
                 <div className="flex items-center justify-between">
                   <div className="w-20 h-20 bg-indigo-600 rounded-[2.5rem] flex items-center justify-center text-white shadow-[0_20px_40px_rgba(79,70,229,0.3)]"><Users size={40} /></div>
                   <div className="px-8 py-3 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-full text-[10px] font-black uppercase tracking-[0.2em]">98% Compatibility Score</div>
                 </div>
-                
                 <div className="space-y-6 mt-12">
                   <h2 className={`text-7xl font-black tracking-tighter uppercase leading-[0.8] ${uiMode === "MORNING" ? "text-slate-950" : "text-white"}`}>Strategic<br/>Matchmaker</h2>
                   <p className={`text-sm font-medium leading-relaxed max-w-lg italic ${uiMode === "MORNING" ? "text-slate-500" : "text-slate-400"}`}>"AI has detected a high-probability pairing: Senior Architect (Abhishek) matched with Emerging Talent (Node.js Node). A 90-day React Server Components syllabus is staged."</p>
                 </div>
-
                 <div className="mt-12">
                   {lastResult ? (
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="p-8 bg-emerald-500 text-white rounded-[3rem] flex items-center justify-between shadow-2xl">
@@ -172,18 +153,12 @@ function DashboardContent() {
                       <a href={lastResult.result?.url} target="_blank" className="p-5 bg-white/20 rounded-full backdrop-blur-md hover:bg-white/30 transition-all active:scale-90"><ExternalLink size={24} /></a>
                     </motion.div>
                   ) : (
-                    <button 
-                      onClick={runAgenticMatch} 
-                      className="tactile-button w-full py-10 text-white rounded-[3.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-6 active:scale-95 transition-all cursor-pointer"
-                    >
-                      <Zap size={24} fill="currentColor" /> Approve & Initialize 90-Day Plan <ArrowRight size={20} />
-                    </button>
+                    <button onClick={runAgenticMatch} className="tactile-button w-full py-10 text-white rounded-[3.5rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-6 active:scale-95 transition-all cursor-pointer"><Zap size={24} fill="currentColor" /> Approve & Initialize 90-Day Plan <ArrowRight size={20} /></button>
                   )}
                 </div>
               </motion.div>
 
-              {/* GAMIFIED 90-DAY JOURNEY */}
-              <div className="liquid-glass p-12 rounded-[5rem] space-y-10 text-left">
+              <div className="liquid-glass p-12 rounded-[5rem] space-y-10">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <h3 className={`text-3xl font-black uppercase tracking-tighter ${uiMode === "MORNING" ? "text-slate-950" : "text-white"}`}>Career Pathway</h3>
@@ -191,7 +166,6 @@ function DashboardContent() {
                   </div>
                   <div className="w-16 h-16 bg-slate-950 text-white rounded-3xl flex items-center justify-center shadow-xl"><Trophy size={28} /></div>
                 </div>
-
                 <div className="space-y-6">
                   <div className="flex justify-between items-end">
                     <span className={`text-[10px] font-black uppercase tracking-widest ${uiMode === "MORNING" ? "text-slate-400" : "text-slate-500"}`}>Current Streak</span>
@@ -200,14 +174,8 @@ function DashboardContent() {
                   <div className="h-6 bg-slate-200/50 rounded-full overflow-hidden border border-white/20 p-1">
                     <motion.div initial={{ width: 0 }} animate={{ width: "68%" }} className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 rounded-full shadow-[0_0_20px_rgba(79,70,229,0.4)]" />
                   </div>
-                  <div className="grid grid-cols-4 gap-4 pt-4">
-                    {[1,2,3,4].map(i => (
-                      <div key={i} className={`h-2 rounded-full ${i <= 3 ? "bg-indigo-500 shadow-[0_0_10px_rgba(79,70,229,0.5)]" : "bg-slate-300/30"}`} />
-                    ))}
-                  </div>
                 </div>
               </div>
-
             </div>
           </main>
 
