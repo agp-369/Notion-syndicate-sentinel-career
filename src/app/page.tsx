@@ -1,10 +1,26 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { ShieldCheck, GraduationCap, Lock, ArrowRight, Loader2, Sparkles, ExternalLink, Zap, Terminal, Activity, CheckCircle2, Command, Users, BarChart3, Fingerprint, Mic, Moon, Sun, Briefcase, Award, TrendingUp, Trophy, LogOut, Database, Search, ShieldAlert, AlertTriangle, Construction } from "lucide-react";
+import { useState, useEffect, Suspense, useRef } from "react";
+import { ShieldCheck, Lock, ArrowRight, Loader2, Sparkles, ExternalLink, Zap, Terminal, CheckCircle2, Moon, Sun, Search, AlertTriangle, Construction, ShieldAlert, Cpu, Users, Server, Target } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth, SignInButton, UserButton, useUser } from "@clerk/nextjs";
 import { useSearchParams, useRouter } from "next/navigation";
+
+const McpTerminal = ({ logs }: { logs: string[] }) => {
+  const endRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }) }, [logs]);
+  return (
+    <div className="bg-[#050B14] font-mono text-[10px] text-emerald-400 p-6 rounded-2xl h-56 overflow-y-auto border border-emerald-500/20 shadow-[inset_0_0_30px_rgba(16,185,129,0.05)] w-full text-left space-y-2">
+      <div className="flex gap-2 text-slate-500 mb-4 items-center border-b border-slate-800 pb-2">
+         <Server size={14} /> <span>JSON-RPC 2.0 // Notion MCP</span>
+      </div>
+      {logs.map((log, i) => (
+        <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} key={i}>{log}</motion.div>
+      ))}
+      <div ref={endRef} />
+    </div>
+  );
+};
 
 function DashboardContent() {
   const searchParams = useSearchParams();
@@ -13,14 +29,25 @@ function DashboardContent() {
   const { isLoaded, userId } = useAuth();
   
   const [step, setStep] = useState<"IDENTITY" | "HANDSHAKE" | "COCKPIT" | "SETUP">("IDENTITY");
-  const [activeTab, setActiveTab] = useState("HUB");
   const [isThinking, setIsThinking] = useState(false);
-  const [cognitiveStage, setCognitiveStage] = useState("");
-  const [lastResult, setLastAction] = useState<any>(null);
+  const [mcpLogs, setMcpLogs] = useState<string[]>([]);
+  
   const [accessToken, setAccessToken] = useState("");
   const [discovery, setDiscovery] = useState<any>(null);
-  const [directoryData, setDirectoryData] = useState<any[]>([]);
-  const [uiMode, setUiMode] = useState<"MORNING" | "FOCUS">("MORNING");
+  const [uiMode, setUiMode] = useState<"MORNING" | "FOCUS">("FOCUS");
+  const [activeModule, setActiveModule] = useState<"FORENSIC" | "MENTORSHIP">("FORENSIC");
+  
+  const [jobUrl, setJobUrl] = useState("");
+  const [auditResult, setAuditResult] = useState<any>(null);
+  
+  const [menteeName, setMenteeName] = useState("");
+  const [targetRole, setTargetRole] = useState("");
+  const [syllabusResult, setSyllabusResult] = useState<any>(null);
+  
+  const [syncSuccessUrl, setSyncSuccessUrl] = useState("");
+
+  const addLog = (msg: string) => setMcpLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+  const clearLogs = () => setMcpLogs([]);
 
   useEffect(() => {
     const urlToken = searchParams.get("access_token");
@@ -45,216 +72,395 @@ function DashboardContent() {
   }, [searchParams, userId]);
 
   const performDiscovery = async (token: string) => {
-    setIsThinking(true);
-    setCognitiveStage("Agentic Search: Finding Sovereign Databases...");
+    setIsThinking(true); clearLogs();
+    addLog("--> call_tool: query_database");
+    addLog("<-- response: Searching for User Sovereign Ledgers...");
     try {
       const res = await fetch("/api/sentinel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "DISCOVER", accessToken: token })
       });
       const data = await res.json();
       setDiscovery(data);
       if (data.found) {
-        setStep("COCKPIT");
-        if (data.directoryId) fetchDirectory(token, data.directoryId);
+        addLog("✅ Workspaces Found. Connecting UI.");
+        setTimeout(() => setStep("COCKPIT"), 800);
       } else {
-        setStep("SETUP");
+        addLog("⚠️ No Ledgers Found. Routing to Setup Wizard.");
+        setTimeout(() => setStep("SETUP"), 800);
       }
     } finally {
-      setIsThinking(false);
+      setTimeout(() => setIsThinking(false), 800);
     }
   };
 
   const initializeWorkspace = async () => {
-    setIsThinking(true);
-    setCognitiveStage("Autonomous Architect: Building Notion Infrastructure...");
+    setIsThinking(true); clearLogs();
+    addLog("--> call_tool: create_database");
     try {
       const res = await fetch("/api/sentinel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "INITIALIZE_WORKSPACE", accessToken })
       });
       const data = await res.json();
       if (data.success) {
-        // Re-discover after building
+        addLog("✅ Databases built successfully.");
         performDiscovery(accessToken);
       } else {
-        alert(data.error || "Setup failed. Ensure you shared a parent page.");
+        alert(data.error || "Setup failed. Check Notion sharing.");
+        setIsThinking(false);
+      }
+    } catch {
+       setIsThinking(false);
+    }
+  };
+
+  const runForensicAudit = async () => {
+    if (!jobUrl) return;
+    setIsThinking(true); setAuditResult(null); setSyncSuccessUrl(""); clearLogs();
+    
+    addLog("--> call_tool: forensic_scrape { url: '...' }");
+    setTimeout(() => addLog("<-- response: Job Description Extracted"), 1500);
+    setTimeout(() => addLog("--> call_tool: analyze_fraud_heuristics"), 3000);
+    setTimeout(() => addLog("<-- response: Gemini reasoning engine processing..."), 4000);
+
+    try {
+      const res = await fetch("/api/sentinel", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "AUDIT_JOB", accessToken, payload: { url: jobUrl } })
+      });
+      const data = await res.json();
+      if (data.success) {
+        addLog("✅ Audit Complete. Passing data to Human-in-the-Loop.");
+        setAuditResult(data.analysis);
+      } else {
+        addLog("❌ API Failure.");
       }
     } finally {
       setIsThinking(false);
     }
   };
 
-  const fetchDirectory = async (token: string, dId: string) => {
-    const res = await fetch("/api/sentinel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "FETCH_DIRECTORY", accessToken: token, payload: { directoryId: dId } })
-    });
-    const data = await res.json();
-    if (data.success) setDirectoryData(data.results);
-  };
-
-  const executeRealHandshake = async () => {
-    if (!discovery?.cohortsId) return setStep("SETUP");
-    setIsThinking(true);
-    setCognitiveStage("Creating Real Mentorship Workspace in Notion...");
+  const approveAndLogAudit = async () => {
+    setIsThinking(true); clearLogs();
+    addLog("--> call_tool: append_block_children { type: 'callout' }");
     try {
       const res = await fetch("/api/sentinel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "EXECUTE_MATCH", accessToken, payload: { cohortsId: discovery.cohortsId, userName: user?.firstName } })
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "SYNC_TO_NOTION", accessToken, payload: { ledgerId: discovery.ledgerId, analysis: auditResult, url: jobUrl } })
       });
       const data = await res.json();
-      if (data.success) setLastAction({ success: true, result: { url: data.url } });
+      if (data.success) {
+        addLog("✅ Sync Successful.");
+        setSyncSuccessUrl(data.url);
+      }
     } finally {
       setIsThinking(false);
     }
   };
 
-  if (!isLoaded) return <div className="min-h-screen bg-white flex items-center justify-center"><Loader2 className="animate-spin text-indigo-600" size={48} /></div>;
+  const runMentorMatch = async () => {
+    if (!menteeName || !targetRole) return;
+    setIsThinking(true); setSyllabusResult(null); setSyncSuccessUrl(""); clearLogs();
+    
+    addLog("--> call_tool: query_employee_trajectories");
+    setTimeout(() => addLog(`--> call_tool: generate_90_day_syllabus { target: '${targetRole}' }`), 2000);
+
+    try {
+      const res = await fetch("/api/sentinel", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "GENERATE_SYLLABUS", accessToken, payload: { menteeName, targetRole } })
+      });
+      const data = await res.json();
+      if (data.success) {
+        addLog("✅ Syllabus Generated. Passing to HITL.");
+        setSyllabusResult(data.syllabus);
+      }
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  const approveAndLogSyllabus = async () => {
+    setIsThinking(true); clearLogs();
+    addLog("--> call_tool: create_page { title: 'Mentorship Workspace' }");
+    try {
+      const res = await fetch("/api/sentinel", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "SYNC_SYLLABUS", accessToken, payload: { parentId: process.env.NEXT_PUBLIC_PROFILE_PAGE_ID || discovery.profileId || discovery.ledgerId, syllabus: syllabusResult, menteeName, targetRole } })
+      });
+      const data = await res.json();
+      if (data.success) {
+        addLog("✅ Mentorship Workspace created in Notion.");
+        setSyncSuccessUrl(data.url);
+      } else {
+         addLog("❌ Sync Failed (Ensure parent page ID is valid).");
+      }
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  if (!isLoaded) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" size={48} /></div>;
+
+  const bgStyles = uiMode === "MORNING" ? "bg-[#f1f5f9] text-slate-900" : "bg-[#050A15] text-white";
+  const glassStyles = uiMode === "MORNING" ? "bg-white/60 backdrop-blur-3xl border border-white/80 shadow-2xl" : "bg-[#0F172A]/40 backdrop-blur-3xl border border-slate-700/50 shadow-2xl liquid-glass";
 
   return (
-    <div className={`min-h-screen transition-all duration-700 p-4 md:p-8 flex flex-col items-center relative overflow-hidden ${uiMode === "MORNING" ? "bg-[#F8FAFC]" : "bg-[#0A0F1E]"}`}>
+    <div className={`min-h-screen transition-all duration-700 p-4 md:p-8 flex flex-col items-center relative overflow-hidden ${bgStyles}`}>
       
-      {/* --- AGENTIC OVERLAY --- */}
+      {/* AGENTIC MCP OVERLAY */}
       <AnimatePresence>
         {isThinking && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[300] bg-slate-950/90 backdrop-blur-3xl flex items-center justify-center p-6">
-            <motion.div initial={{ scale: 0.9, y: 40 }} animate={{ scale: 1, y: 0 }} className="liquid-glass p-16 rounded-[4.5rem] max-w-xl w-full text-center space-y-10 border-white/10">
-              <div className="flex justify-center"><div className="w-24 h-24 bg-indigo-600 rounded-[2.5rem] flex items-center justify-center text-white shadow-2xl animate-spin-slow"><Zap size={48} fill="currentColor" /></div></div>
-              <div className="space-y-4">
-                <h3 className="text-4xl font-black uppercase tracking-tighter text-white">Agentic Workflow</h3>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.5em]">{cognitiveStage}</p>
-              </div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[300] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6">
+            <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} className="p-8 md:p-12 rounded-[2.5rem] bg-slate-900 border border-indigo-500/30 max-w-2xl w-full text-center space-y-8 shadow-[0_0_100px_rgba(79,70,229,0.15)]">
+              <div className="flex justify-center"><div className="w-16 h-16 bg-indigo-600 rounded-[1.5rem] flex items-center justify-center text-white animate-pulse"><Cpu size={32} /></div></div>
+              <McpTerminal logs={mcpLogs} />
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* --- STEP 1: IDENTITY --- */}
+      {/* STEP 1: IDENTITY */}
       {step === "IDENTITY" && (
-        <motion.div key="identity" className="flex flex-col items-center text-center space-y-12 mt-24 max-w-2xl relative z-10">
-          <div className="w-32 h-32 liquid-glass rounded-[3.5rem] flex items-center justify-center shadow-2xl border-white/40"><Lock size={56} className={uiMode === "MORNING" ? "text-slate-950" : "text-white"} /></div>
-          <h1 className={`text-9xl font-black tracking-tighter uppercase leading-[0.8] ${uiMode === "MORNING" ? "text-slate-950" : "text-white"}`}>Sovereign<br/>OS</h1>
-          <SignInButton mode="modal"><button className="tactile-button px-12 py-7 text-white rounded-[2.5rem] font-black uppercase tracking-widest text-[11px] flex items-center gap-4 cursor-pointer hover:scale-105 active:scale-95">Initialize Node <ArrowRight size={18} /></button></SignInButton>
+        <motion.div key="identity" className="flex flex-col items-center text-center space-y-10 mt-32 max-w-2xl relative z-10">
+          <div className={`w-32 h-32 ${glassStyles} rounded-[3rem] flex items-center justify-center`}><ShieldCheck size={56} className="text-indigo-500" /></div>
+          <h1 className="text-8xl md:text-9xl font-black tracking-tighter uppercase leading-[0.85]">Lumina<br/><span className="text-indigo-500">OS</span></h1>
+          <p className="text-sm font-medium opacity-60 italic max-w-md">Sovereign Career Agent & Mentorship Orchestrator powered by Notion MCP.</p>
+          <SignInButton mode="modal">
+            <button className="tactile-button bg-indigo-600 px-12 py-6 text-white rounded-[2rem] font-black uppercase tracking-widest text-[11px] flex items-center gap-4 hover:scale-105 active:scale-95 transition-all shadow-lg hover:shadow-indigo-500/50">
+              Initialize Node <ArrowRight size={18} />
+            </button>
+          </SignInButton>
         </motion.div>
       )}
 
-      {/* --- STEP 2: HANDSHAKE --- */}
+      {/* STEP 2: HANDSHAKE */}
       {step === "HANDSHAKE" && (
-        <motion.div key="handshake" className="flex flex-col items-center text-center space-y-12 mt-24 max-w-3xl relative z-10">
-          <div className="w-24 h-24 bg-slate-950 rounded-[2.5rem] flex items-center justify-center text-white shadow-2xl"><Database size={40} /></div>
-          <div className="space-y-4 text-center">
-            <h2 className={`text-7xl font-black tracking-tighter uppercase leading-none ${uiMode === "MORNING" ? "text-slate-950" : "text-white"}`}>Connect<br/>Intelligence</h2>
-            <p className={`text-sm font-medium italic ${uiMode === "MORNING" ? "text-slate-500" : "text-slate-400"}`}>Hello {user?.firstName}. Authorize the node to access your Notion Blackboard.</p>
-          </div>
-          <a href="/api/notion/auth" className="tactile-button px-16 py-8 rounded-[3rem] text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-4 cursor-pointer hover:scale-105 active:scale-95"><Zap size={20} fill="currentColor" /> Authorize Notion Handshake</a>
-        </motion.div>
-      )}
-
-      {/* --- STEP 2.5: SETUP WIZARD --- */}
-      {step === "SETUP" && (
-        <motion.div key="setup" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center text-center space-y-12 mt-24 max-w-3xl relative z-10">
-          <div className="w-24 h-24 bg-amber-500 rounded-[2.5rem] flex items-center justify-center text-white shadow-2xl animate-pulse"><Construction size={40} /></div>
+        <motion.div key="handshake" className="flex flex-col items-center text-center space-y-12 mt-32 max-w-3xl relative z-10">
+          <div className="w-24 h-24 bg-indigo-600 rounded-[2.5rem] flex items-center justify-center text-white shadow-xl"><Lock size={40} /></div>
           <div className="space-y-4">
-            <h2 className={`text-7xl font-black tracking-tighter uppercase leading-none ${uiMode === "MORNING" ? "text-slate-950" : "text-white"}`}>Initialize<br/>Workspace</h2>
-            <p className={`text-sm font-medium italic ${uiMode === "MORNING" ? "text-slate-500" : "text-slate-400"}`}>Databases not found. Let the AI agent build your Sovereign Infrastructure.</p>
+            <h2 className="text-6xl md:text-7xl font-black tracking-tighter uppercase leading-none">Security<br/>Handshake</h2>
+            <p className="text-sm font-medium opacity-60 italic">Hello {user?.firstName}. Authorize Lumina to build your secure Notion infrastructure.</p>
           </div>
-          <button onClick={initializeWorkspace} className="tactile-button px-16 py-8 rounded-[3rem] text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-4 cursor-pointer hover:scale-105 active:scale-95 shadow-2xl">
-            <Sparkles size={20} fill="currentColor" /> Build Sovereign Brain
-          </button>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Ensure at least one page is shared with 'Syndicate Sentinel'</p>
+          <a href="/api/notion/auth" className="tactile-button bg-slate-900 border border-slate-700 px-12 py-6 rounded-[2rem] text-white font-black uppercase tracking-widest text-xs flex items-center gap-4 hover:scale-105 active:scale-95 shadow-xl hover:shadow-indigo-500/20">
+            <Zap size={18} className="text-indigo-400" /> Grant Workspace Access
+          </a>
         </motion.div>
       )}
 
-      {/* --- STEP 3: COCKPIT --- */}
+      {/* STEP 2.5: SETUP WIZARD */}
+      {step === "SETUP" && (
+        <motion.div key="setup" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center text-center space-y-10 mt-24 max-w-2xl relative z-10">
+          <div className="w-24 h-24 bg-amber-500 rounded-[2.5rem] flex items-center justify-center text-white shadow-xl animate-pulse"><Construction size={40} /></div>
+          <div className="space-y-4">
+            <h2 className="text-6xl font-black tracking-tighter uppercase leading-none">Missing<br/>Ledger</h2>
+            <p className="text-sm font-medium opacity-60">Job Ledger database not found in the authorized workspace.</p>
+          </div>
+          <div className={`p-8 ${glassStyles} rounded-[2rem] w-full text-left space-y-4`}>
+             <p className="text-xs font-bold uppercase tracking-widest text-indigo-400">Action Required</p>
+             <ol className="list-decimal pl-4 text-sm space-y-2 opacity-80">
+                <li>Create an empty page in your Notion.</li>
+                <li>Click the ... menu on that page and select Connect To -&gt; Syndicate Nexus.</li>
+                <li>Return here and click Initialize.</li>
+             </ol>
+          </div>
+          <button onClick={initializeWorkspace} className="tactile-button bg-indigo-600 px-12 py-6 rounded-[2rem] text-white font-black uppercase tracking-widest text-xs flex items-center gap-4 hover:scale-105 active:scale-95 shadow-xl hover:shadow-indigo-500/50">
+            <Sparkles size={18} /> Initialize Sovereign Architecture
+          </button>
+        </motion.div>
+      )}
+
+      {/* STEP 3: COCKPIT */}
       {step === "COCKPIT" && (
-        <div className="max-w-7xl w-full space-y-8 relative z-10">
-          <header className="liquid-glass p-4 rounded-[2.5rem] flex items-center justify-between shadow-2xl border-white/40">
-            <div className="flex items-center gap-4 pl-4 text-left">
-              <div className="w-12 h-12 bg-slate-950 rounded-2xl flex items-center justify-center text-white shadow-xl"><Fingerprint size={24} /></div>
-              <div className="hidden md:block">
-                <p className={`text-[10px] font-black uppercase tracking-widest leading-none ${uiMode === "MORNING" ? "text-slate-950" : "text-white"}`}>Syndicate OS</p>
-                <div className="flex items-center gap-2 mt-1.5"><span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" /><p className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest">REAL_TIME // {user?.firstName?.toUpperCase()}</p></div>
+        <div className="max-w-7xl w-full space-y-6 relative z-10 mx-auto">
+          {/* Header */}
+          <header className={`p-4 rounded-[2rem] flex items-center justify-between ${glassStyles}`}>
+            <div className="flex items-center gap-4 pl-4">
+              <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg"><ShieldCheck size={24} /></div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest leading-none">Lumina OS</p>
+                <div className="flex items-center gap-2 mt-1.5"><span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" /><p className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">SECURE UPLINK ACTIVE</p></div>
               </div>
             </div>
-            <nav className="flex bg-slate-950/5 p-1.5 rounded-[2rem] gap-1 font-black text-[10px] uppercase">
-              {["HUB", "FORENSICS", "DIRECTORY"].map((tab) => (
-                <button key={tab} onClick={() => setActiveTab(tab)} className={`px-10 py-4 rounded-full transition-all cursor-pointer ${activeTab === tab ? "bg-white text-indigo-600 shadow-2xl scale-105" : "text-slate-500 hover:text-slate-800"}`}>{tab}</button>
-              ))}
-            </nav>
-            <div className="pr-2 flex items-center gap-4">
-              <button onClick={() => { localStorage.removeItem("notion_access_token"); setStep("HANDSHAKE"); }} className="p-3 rounded-2xl liquid-glass text-red-500 hover:bg-red-50 transition-colors cursor-pointer" title="Disconnect Notion"><LogOut size={20} /></button>
-              <button onClick={() => setUiMode(uiMode === "MORNING" ? "FOCUS" : "MORNING")} className={`p-3 rounded-2xl liquid-glass transition-colors cursor-pointer ${uiMode === "MORNING" ? "text-slate-950" : "text-white"}`}>{uiMode === "MORNING" ? <Sun size={20} /> : <Moon size={20} />}</button>
+            
+            <div className="hidden md:flex bg-slate-900/10 p-1.5 rounded-full gap-2 border border-slate-700/50">
+               <button onClick={() => {setActiveModule("FORENSIC"); setSyncSuccessUrl("")}} className={`px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${activeModule === "FORENSIC" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-800 dark:hover:text-white"}`}>Job Auditor</button>
+               <button onClick={() => {setActiveModule("MENTORSHIP"); setSyncSuccessUrl("")}} className={`px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${activeModule === "MENTORSHIP" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-800 dark:hover:text-white"}`}>Career Mentor</button>
+            </div>
+
+            <div className="flex items-center gap-4 pr-2">
+              <button onClick={() => setUiMode(uiMode === "MORNING" ? "FOCUS" : "MORNING")} className={`p-3 rounded-xl transition-colors bg-slate-900/10 hover:bg-slate-900/20`}>{uiMode === "MORNING" ? <Moon size={18} className="text-slate-900" /> : <Sun size={18} className="text-amber-400" />}</button>
               <UserButton />
             </div>
           </header>
 
-          <main className="min-h-[700px]">
-            <AnimatePresence mode="wait">
-              {activeTab === "HUB" && (
-                <motion.div key="hub" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                  <div className="lg:col-span-4 space-y-8 text-left">
-                    <div className="liquid-glass p-12 rounded-[4.5rem] space-y-4 shadow-3xl">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Discovery Engine</p>
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center"><span className="text-xs font-bold uppercase text-slate-400">Directory</span><CheckCircle2 className="text-emerald-500" size={20} /></div>
-                        <div className="flex justify-between items-center"><span className="text-xs font-bold uppercase text-slate-400">Cohorts</span><CheckCircle2 className="text-emerald-500" size={20} /></div>
-                      </div>
-                    </div>
-                  </div>
+          {/* Main Layout */}
+          <main className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            {/* Left Col: Master Control Inputs */}
+            <div className="lg:col-span-5 space-y-6">
+               <div className={`p-10 rounded-[2.5rem] space-y-8 h-full flex flex-col ${glassStyles}`}>
                   
-                  <div className="lg:col-span-8 liquid-glass p-14 rounded-[5.5rem] flex flex-col justify-between text-left shadow-4xl">
-                    <div className="space-y-8">
-                      <div className="w-20 h-20 bg-indigo-600 rounded-[2.5rem] flex items-center justify-center text-white shadow-2xl"><Users size={40} /></div>
-                      <h2 className={`text-8xl font-black tracking-tighter uppercase leading-[0.8] ${uiMode === "MORNING" ? "text-slate-950" : "text-white"}`}>Real<br/>Execution</h2>
-                      <p className={`text-lg font-medium italic ${uiMode === "MORNING" ? "text-slate-500" : "text-slate-400"}`}>Create a real-time Mentorship workspace in your Notion repository.</p>
-                    </div>
-                    <div className="mt-12">
-                      {lastResult ? (
-                        <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="p-10 bg-emerald-500 text-white rounded-[3.5rem] flex items-center justify-between shadow-2xl">
-                          <div className="flex items-center gap-6">
-                            <CheckCircle2 size={48} />
-                            <div><p className="text-[10px] font-black uppercase tracking-widest opacity-80">Success</p><p className="text-2xl font-black uppercase tracking-tight">Handshake Realized</p></div>
-                          </div>
-                          <a href={lastResult.result?.url} target="_blank" className="p-6 bg-white/20 rounded-full hover:bg-white/30 transition-all cursor-pointer"><ExternalLink size={28} /></a>
-                        </motion.div>
-                      ) : (
-                        <button onClick={executeRealHandshake} className="tactile-button w-full py-12 text-white rounded-[4rem] font-black uppercase tracking-widest text-sm flex items-center justify-center gap-6 cursor-pointer hover:scale-[1.02] active:scale-95 shadow-3xl">
-                          <Zap size={28} fill="currentColor" /> Approve & Execute Handshake <ArrowRight size={24} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {activeTab === "DIRECTORY" && (
-                <motion.div key="directory" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="liquid-glass p-16 rounded-[5rem] text-center space-y-12 min-h-[500px]">
-                  <h2 className={`text-7xl font-black tracking-tighter uppercase leading-none ${uiMode === "MORNING" ? "text-slate-950" : "text-white"}`}>Live<br/>Workforce</h2>
-                  {directoryData.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
-                      {directoryData.map((page: any) => (
-                        <div key={page.id} className="p-8 bg-white/20 rounded-[2.5rem] border border-white/40 text-left hover:scale-105 transition-all cursor-pointer">
-                          <p className={`font-black uppercase tracking-tight ${uiMode === "MORNING" ? "text-slate-950" : "text-white"}`}>{page.properties?.Name?.title?.[0]?.plain_text || "Employee"}</p>
-                          <p className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest mt-2">{page.properties?.Role?.select?.name || "Active Member"}</p>
+                  {activeModule === "FORENSIC" ? (
+                     <>
+                        <div>
+                           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 mb-2">Forensic Module</p>
+                           <h2 className="text-4xl font-black tracking-tighter uppercase leading-tight">Job<br/>Auditor</h2>
                         </div>
-                      ))}
-                    </div>
+                        <p className="text-sm opacity-60 font-medium leading-relaxed">Paste a job posting URL below. Lumina will scrape the domain, analyze for fraud patterns, and match it against your skill matrix.</p>
+                        <div className="mt-auto space-y-4 pt-4">
+                           <div className="relative">
+                              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                              <input type="text" placeholder="https://linkedin.com/jobs/..." value={jobUrl} onChange={e => setJobUrl(e.target.value)} className={`w-full bg-slate-900/30 border border-slate-700/50 rounded-2xl py-5 pl-12 pr-4 text-sm font-medium focus:outline-none focus:border-indigo-500 transition-colors ${uiMode === "MORNING" ? "text-slate-900 bg-white border-slate-300" : "text-white"}`} />
+                           </div>
+                           <button onClick={runForensicAudit} disabled={!jobUrl} className="w-full tactile-button text-white font-black uppercase tracking-widest text-xs py-5 rounded-2xl flex items-center justify-center gap-3 transition-colors shadow-lg">
+                              <Terminal size={18} /> Execute Forensic Audit
+                           </button>
+                        </div>
+                     </>
                   ) : (
-                    <div className="py-24 opacity-30 text-slate-500 space-y-4">
-                      <Search size={64} className="mx-auto" />
-                      <p className="text-xs font-black uppercase tracking-widest">No Real Data Found</p>
-                    </div>
+                     <>
+                        <div>
+                           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">Development Module</p>
+                           <h2 className="text-4xl font-black tracking-tighter uppercase leading-tight">Career<br/>Pathway</h2>
+                        </div>
+                        <p className="text-sm opacity-60 font-medium leading-relaxed">Enter details to generate an AI-backed 90-Day Mentorship Syllabus. Lumina uses Notion MCP to construct the workspace.</p>
+                        <div className="mt-auto space-y-4 pt-4">
+                           <input type="text" placeholder="Mentee Name" value={menteeName} onChange={e => setMenteeName(e.target.value)} className={`w-full bg-slate-900/30 border border-slate-700/50 rounded-2xl py-4 px-4 text-sm font-medium focus:outline-none focus:border-fuchsia-500 transition-colors ${uiMode === "MORNING" ? "text-slate-900 bg-white border-slate-300" : "text-white"}`} />
+                           <input type="text" placeholder="Target Role (e.g. Senior Frontend Engineer)" value={targetRole} onChange={e => setTargetRole(e.target.value)} className={`w-full bg-slate-900/30 border border-slate-700/50 rounded-2xl py-4 px-4 text-sm font-medium focus:outline-none focus:border-fuchsia-500 transition-colors ${uiMode === "MORNING" ? "text-slate-900 bg-white border-slate-300" : "text-white"}`} />
+                           
+                           <button onClick={runMentorMatch} disabled={!menteeName || !targetRole} className="w-full bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:scale-[1.02] active:scale-95 text-white font-black uppercase tracking-widest text-xs py-5 rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-fuchsia-500/25">
+                              <Target size={18} /> Agentic Mentor Matchmaker
+                           </button>
+                        </div>
+                     </>
                   )}
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  
+               </div>
+            </div>
+
+            {/* Right Col: Reasoning Display & Override */}
+            <div className="lg:col-span-7">
+               {activeModule === "FORENSIC" && auditResult && (
+                  <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className={`p-10 rounded-[2.5rem] h-full flex flex-col ${glassStyles}`}>
+                     <div className="flex justify-between items-start mb-8">
+                        <div>
+                           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-2">Analysis Complete</p>
+                           <h3 className="text-2xl font-black tracking-tight">{auditResult.jobTitle}</h3>
+                        </div>
+                        <div className={`px-4 py-2 rounded-xl border flex items-center gap-2 font-bold text-sm ${auditResult.safetyScore > 70 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500" : "bg-red-500/10 border-red-500/30 text-red-500"}`}>
+                           {auditResult.safetyScore > 70 ? <ShieldCheck size={18}/> : <ShieldAlert size={18}/>}
+                           {auditResult.verdict}
+                        </div>
+                     </div>
+
+                     <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="p-6 rounded-2xl bg-slate-900/30 border border-slate-700/50">
+                           <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Authenticity Score</p>
+                           <p className="text-4xl font-black text-indigo-400">{auditResult.safetyScore}%</p>
+                        </div>
+                        <div className="p-6 rounded-2xl bg-slate-900/30 border border-slate-700/50">
+                           <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Skill Match Score</p>
+                           <p className="text-4xl font-black text-emerald-400">{auditResult.matchScore}%</p>
+                        </div>
+                     </div>
+
+                     <div className="space-y-4 mb-4 flex-grow">
+                        <div>
+                           <p className="text-xs font-bold uppercase tracking-widest opacity-50 mb-2">Why this recommendation?</p>
+                           <p className="text-sm font-medium leading-relaxed opacity-90 p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">{auditResult.reasoning}</p>
+                        </div>
+                     </div>
+
+                     {/* Human-in-the-Loop Override */}
+                     <div className="mt-auto border-t border-slate-700/50 pt-8">
+                        {syncSuccessUrl ? (
+                           <div className="p-6 bg-emerald-500/20 border border-emerald-500/30 rounded-2xl flex items-center justify-between">
+                              <div className="flex items-center gap-4 text-emerald-500">
+                                 <CheckCircle2 size={24} />
+                                 <p className="font-bold text-sm">Successfully logged to Master Ledger</p>
+                              </div>
+                              <a href={syncSuccessUrl} target="_blank" className="p-3 bg-emerald-500/20 hover:bg-emerald-500/40 rounded-xl transition-all"><ExternalLink size={20} className="text-emerald-500"/></a>
+                           </div>
+                        ) : (
+                           <div className="flex flex-col sm:flex-row items-center gap-4">
+                              <div className="flex-grow flex items-center gap-3 opacity-60">
+                                 <AlertTriangle size={18} className="text-amber-500" />
+                                 <p className="text-[10px] font-bold uppercase tracking-widest">Awaiting Human-in-the-Loop Override</p>
+                              </div>
+                              <button onClick={approveAndLogAudit} className="w-full sm:w-auto bg-white text-slate-900 font-black uppercase tracking-widest text-[11px] px-8 py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-slate-200 transition-colors shadow-xl">
+                                 <CheckCircle2 size={18} /> Approve & Log to Notion
+                              </button>
+                           </div>
+                        )}
+                     </div>
+                  </motion.div>
+               )}
+
+               {activeModule === "MENTORSHIP" && syllabusResult && (
+                  <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className={`p-10 rounded-[2.5rem] h-full flex flex-col ${glassStyles}`}>
+                     <div className="flex justify-between items-start mb-6">
+                        <div>
+                           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-2">AI Match Completed</p>
+                           <h3 className="text-2xl font-black tracking-tight">{syllabusResult.mentorName}</h3>
+                        </div>
+                        <div className="px-5 py-3 rounded-2xl bg-fuchsia-500/10 border border-fuchsia-500/30">
+                           <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Synergy Match</p>
+                           <p className="text-3xl font-black text-fuchsia-400 text-center">{syllabusResult.matchScore}%</p>
+                        </div>
+                     </div>
+
+                     <div className="text-left mb-6">
+                        <p className="text-xs font-bold uppercase tracking-widest opacity-50 mb-2">Why this mentor?</p>
+                        <p className="text-sm font-medium opacity-90 p-4 rounded-xl bg-slate-800/30 border border-slate-700/50">{syllabusResult.justification}</p>
+                     </div>
+
+                     {/* Gamified Syllabus */}
+                     <div className="text-left flex-grow">
+                        <p className="text-xs font-bold uppercase tracking-widest opacity-50 mb-4">90-Day Career Pathway</p>
+                        <div className="space-y-4">
+                           {syllabusResult.phases.map((p: any, i: number) => (
+                              <div key={i} className="flex gap-4 items-center p-4 rounded-2xl bg-slate-900/40 border border-slate-700/30 relative overflow-hidden group">
+                                 <div className="absolute inset-0 bg-gradient-to-r from-fuchsia-500/10 to-indigo-500/10 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-700" />
+                                 <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-black text-xs text-slate-400 relative z-10">{i+1}</div>
+                                 <div className="relative z-10">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">{p.timeframe}</p>
+                                    <p className="text-sm font-medium mt-1">{p.focus}</p>
+                                 </div>
+                              </div>
+                           ))}
+                        </div>
+                     </div>
+
+                     {/* Human-in-the-Loop Override */}
+                     <div className="mt-8 border-t border-slate-700/50 pt-8">
+                        {syncSuccessUrl ? (
+                           <div className="p-6 bg-fuchsia-500/20 border border-fuchsia-500/30 rounded-2xl flex items-center justify-between">
+                              <p className="font-bold text-sm text-fuchsia-400 flex items-center gap-2"><CheckCircle2 size={20} /> Workspace Initialized via MCP</p>
+                              <a href={syncSuccessUrl} target="_blank" className="p-3 bg-fuchsia-500/20 hover:bg-fuchsia-500/40 rounded-xl transition-all"><ExternalLink size={20} className="text-fuchsia-400"/></a>
+                           </div>
+                        ) : (
+                           <div className="flex flex-col sm:flex-row items-center gap-4">
+                              <p className="flex-grow flex items-center gap-3 opacity-60 text-[10px] font-bold uppercase tracking-widest"><AlertTriangle size={18} className="text-amber-500" /> Awaiting Human-in-the-Loop</p>
+                              <button onClick={approveAndLogSyllabus} className="w-full sm:w-auto bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white font-black uppercase tracking-widest text-[11px] px-8 py-4 rounded-xl flex items-center justify-center gap-2 hover:scale-105 transition-all shadow-xl shadow-fuchsia-500/20">
+                                 <Server size={18} /> Initialize Notion Workspace
+                              </button>
+                           </div>
+                        )}
+                     </div>
+                  </motion.div>
+               )}
+
+               {((activeModule === "FORENSIC" && !auditResult) || (activeModule === "MENTORSHIP" && !syllabusResult)) && (
+                  <div className={`p-10 rounded-[2.5rem] h-full flex flex-col items-center justify-center text-center opacity-40 ${glassStyles}`}>
+                     <ShieldCheck size={64} className="mb-6 opacity-50" />
+                     <h3 className="text-xl font-black uppercase tracking-widest mb-2">Awaiting Target</h3>
+                     <p className="text-sm font-medium">Select a module and deploy agents to begin.</p>
+                  </div>
+               )}
+            </div>
           </main>
-          <footer className="text-center pt-8 opacity-20"><p className="text-[10px] font-black text-slate-950 uppercase tracking-[1.5em] mix-blend-difference">Syndicate OS // Master v12.0 Autonomous</p></footer>
         </div>
       )}
     </div>
@@ -263,7 +469,7 @@ function DashboardContent() {
 
 export default function Home() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-white flex items-center justify-center"><Loader2 className="animate-spin text-indigo-600" size={48} /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" size={48} /></div>}>
       <DashboardContent />
     </Suspense>
   );
