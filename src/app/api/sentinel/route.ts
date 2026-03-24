@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   };
 
   try {
-    // 🔍 SCAN: Finds the core Career databases with more flexibility
+    // 🔍 SCAN: Finds the core Career databases
     if (mode === "SCAN_WORKSPACE") {
       const searchRes = await fetch("https://api.notion.com/v1/search", {
         method: "POST",
@@ -26,8 +26,8 @@ export async function POST(req: Request) {
           return keywords.some(k => title.includes(k));
         });
 
-      const talent = findDb(["talent", "employee", "directory", "pool"]);
-      const manifolds = findDb(["manifold", "career", "strategy", "roadmap"]);
+      const talent = findDb(["talent", "employee", "pool"]);
+      const manifolds = findDb(["manifold", "career", "strategy"]);
 
       return NextResponse.json({ 
         success: true, 
@@ -37,13 +37,63 @@ export async function POST(req: Request) {
       });
     }
 
-    // 📋 READ: Fetches the Talent Pool (handles invalid IDs gracefully)
+    // 🏗️ INITIALIZE: Creates the databases in Notion
+    if (mode === "INITIALIZE_INFRASTRUCTURE") {
+      // 1. Find a parent page to host the databases
+      const pageSearch = await fetch("https://api.notion.com/v1/search", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ filter: { property: "object", value: "page" }, page_size: 1 }),
+      });
+      const pageData = await pageSearch.json();
+      const parentId = pageData.results?.[0]?.id;
+
+      if (!parentId) throw new Error("No shared page found. Please ensure you have shared at least one Notion page with 'Syndicate Sentinel'.");
+
+      // 2. Create Talent Pool
+      const createTalent = await fetch("https://api.notion.com/v1/databases", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          parent: { page_id: parentId },
+          title: [{ text: { content: "Talent Pool" } }],
+          properties: {
+            "Name": { title: {} },
+            "Role": { select: { options: [{ name: "Senior Lead", color: "blue" }, { name: "Junior Dev", color: "green" }] } },
+            "Skills": { multi_select: { options: [{ name: "React" }, { name: "Node.js" }] } }
+          }
+        }),
+      });
+      const talentData = await createTalent.json();
+
+      // 3. Create Career Manifolds
+      const createManifolds = await fetch("https://api.notion.com/v1/databases", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          parent: { page_id: parentId },
+          title: [{ text: { content: "Career Manifolds" } }],
+          properties: {
+            "Name": { title: {} },
+            "Status": { select: { options: [{ name: "Draft", color: "gray" }, { name: "Active", color: "green" }] } }
+          }
+        }),
+      });
+      const manifoldData = await createManifolds.json();
+
+      return NextResponse.json({ 
+        success: true, 
+        talentId: talentData.id, 
+        manifoldId: manifoldData.id 
+      });
+    }
+
+    // 📋 READ: Fetches the Talent Pool
     if (mode === "READ_TALENT" && payload.talentId) {
       const res = await fetch(`https://api.notion.com/v1/databases/${payload.talentId}/query`, {
         method: "POST",
         headers,
       });
-      if (!res.ok) throw new Error("Database Access Denied");
       const data = await res.json();
       return NextResponse.json({ success: true, results: data.results });
     }
@@ -58,11 +108,7 @@ export async function POST(req: Request) {
           properties: {
             "Name": { title: [{ text: { content: `Sentinel Strategy: ${payload.targetName}` } }] },
             "Status": { select: { name: "Draft" } }
-          },
-          children: [
-            { object: "block", type: "heading_1", heading_1: { rich_text: [{ text: { content: "Autonomous Career Manifold" } }] } },
-            { object: "block", type: "paragraph", paragraph: { rich_text: [{ text: { content: `Strategic roadmap generated for ${payload.targetName} by Syndicate Sentinel MCP.` } }] } }
-          ]
+          }
         }),
       });
       const data = await res.json();
