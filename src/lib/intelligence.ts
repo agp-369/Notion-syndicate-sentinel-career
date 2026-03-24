@@ -57,11 +57,13 @@ export async function runForensicAudit(url: string): Promise<ForensicReport> {
 
   // 2. 🧬 PARSE & CLEAN
   const $job = cheerio.load(jobHtml || "");
-  // Remove scripts, styles, and heavy markup
-  $("script, style, svg, nav, footer").remove();
+  // Remove scripts, styles, and heavy markup from job content
+  $job("script, style, svg, nav, footer").remove();
   const jobText = $job("body").text().replace(/\s+/g, " ").trim().substring(0, 15000); // 15k chars context
   
   const $domain = cheerio.load(domainHtml || "");
+  // Remove scripts, styles, and heavy markup from domain content
+  $domain("script, style, svg, nav, footer").remove();
   const domainText = $domain("body").text().replace(/\s+/g, " ").trim().substring(0, 5000);
 
   // 3. 🧠 GEMINI 2.5 FORENSIC ANALYSIS

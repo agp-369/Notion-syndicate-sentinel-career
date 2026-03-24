@@ -2,13 +2,13 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // Fix for Workspace Root Detection
+  turbopack: {
+    root: '.'
+  },
   experimental: {
-    // Suppress workspace root detection warning by forcing current directory
-    turbopack: {
-      root: '.'
-    },
-    // Next.js 16.1.6: Enable 'proxy' mode for authentication and routing
-    proxy: true
+    // Next.js 16.1.6: Middleware has moved to 'proxy' file convention
+    // Detects src/proxy.ts automatically
   }
 };
 
