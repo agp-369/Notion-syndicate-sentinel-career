@@ -18,6 +18,8 @@ function SentinelContent() {
   const [accessToken, setAccessToken] = useState("");
   const [workspace, setWorkspace] = useState<any>(null);
   const [talentPool, setTalentPool] = useState<any[]>([]);
+  const [forensicUrl, setForensicUrl] = useState("");
+  const [forensicResult, setForensicResult] = useState<any>(null);
 
   useEffect(() => {
     const urlToken = searchParams.get("access_token");
@@ -114,6 +116,34 @@ function SentinelContent() {
     }
   };
 
+  const handleForensicScan = async () => {
+    if (!forensicUrl) return;
+    setIsSyncing(true);
+    setForensicResult(null);
+    addLog(`Initializing Forensic Scan: ${new URL(forensicUrl).hostname}...`);
+    
+    try {
+      const res = await fetch("/api/sentinel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+            mode: "FORENSIC_AUDIT", 
+            accessToken, 
+            payload: { url: forensicUrl, dbId: workspace?.talentId } // Save to Talent Pool if available
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setForensicResult(data.analysis);
+        addLog(`Scan Complete. Verdict: ${data.analysis.verdict}`);
+      }
+    } catch (e) {
+      addLog("Scan Failed.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   if (!isLoaded) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" /></div>;
 
   return (
@@ -173,6 +203,67 @@ function SentinelContent() {
           </header>
 
           <main className="grid grid-cols-1 md:grid-cols-12 gap-8">
+
+            {/* FORENSIC SCANNER - NEW HERO SECTION */}
+            <div className="md:col-span-12 bg-slate-900/50 p-10 rounded-[4rem] border border-white/5 relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -z-10" />
+               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8 mb-8">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                        <ShieldCheck className="text-emerald-500" size={24} />
+                        <h3 className="text-3xl font-black uppercase tracking-tighter text-white">Forensic Intelligence</h3>
+                    </div>
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Deep-Scan Job Scams & Ghost Roles</p>
+                  </div>
+               </div>
+
+               <div className="flex flex-col md:flex-row gap-4">
+                  <input 
+                    type="text" 
+                    placeholder="Paste Job URL (LinkedIn, Indeed, etc.)" 
+                    value={forensicUrl}
+                    onChange={(e) => setForensicUrl(e.target.value)}
+                    className="flex-1 bg-slate-950 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-indigo-500/50 transition-all text-white placeholder:text-slate-600 font-mono"
+                  />
+                  <button 
+                    onClick={handleForensicScan} 
+                    disabled={isSyncing || !forensicUrl}
+                    className="px-8 py-4 bg-white text-slate-950 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-indigo-50 disabled:opacity-50 transition-all flex items-center gap-3"
+                  >
+                    {isSyncing ? <Loader2 className="animate-spin" size={16} /> : <Search size={16} />}
+                    Scan Target
+                  </button>
+               </div>
+
+               <AnimatePresence>
+                 {forensicResult && (
+                   <motion.div 
+                     initial={{ opacity: 0, y: 20 }} 
+                     animate={{ opacity: 1, y: 0 }}
+                     className="mt-8 p-6 bg-slate-800/30 rounded-3xl border border-white/5 grid grid-cols-1 md:grid-cols-3 gap-6"
+                   >
+                      <div className="p-4 bg-slate-950/50 rounded-2xl border border-white/5 text-center">
+                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">Verdict</p>
+                         <p className={`text-xl font-black uppercase ${forensicResult.score > 80 ? "text-emerald-400" : forensicResult.score > 50 ? "text-amber-400" : "text-red-400"}`}>
+                            {forensicResult.verdict}
+                         </p>
+                      </div>
+                      <div className="p-4 bg-slate-950/50 rounded-2xl border border-white/5 text-center">
+                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">Confidence</p>
+                         <p className="text-xl font-black text-white">{forensicResult.score}%</p>
+                      </div>
+                      <div className="p-4 bg-slate-950/50 rounded-2xl border border-white/5">
+                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">Flags</p>
+                         <div className="flex flex-wrap gap-2">
+                            {forensicResult.analysis.flags.length > 0 ? (
+                                forensicResult.analysis.flags.map((f: string, i: number) => <span key={i} className="text-[9px] bg-red-500/20 text-red-300 px-2 py-1 rounded-md border border-red-500/20">{f}</span>)
+                            ) : <span className="text-[9px] text-emerald-500">None detected.</span>}
+                         </div>
+                      </div>
+                   </motion.div>
+                 )}
+               </AnimatePresence>
+            </div>
             
             {/* INFRASTRUCTURE STATUS */}
             <div className="md:col-span-5 space-y-8">

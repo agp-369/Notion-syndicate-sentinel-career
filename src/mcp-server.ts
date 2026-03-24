@@ -8,9 +8,8 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { Client } from "@notionhq/client";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import axios from "axios";
-import * as cheerio from "cheerio";
 import dotenv from "dotenv";
+import { runForensicAudit } from "./lib/intelligence.js";
 
 dotenv.config({ path: ".env" });
 dotenv.config({ path: ".env.local" });
@@ -26,7 +25,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const server = new Server(
   {
     name: "lumina-mcp-node",
-    version: "1.0.0",
+    version: "2.0.0",
   },
   {
     capabilities: {
@@ -54,9 +53,9 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   if (request.params.uri === "notion://job-ledger-metadata") {
     // Dynamically fetch the Job Ledger ID 
     const dbSearch = await notion.search({ filter: { property: "object", value: "database" } });
-    const ledger = dbSearch.results.find((db: any) => db.title[0]?.plain_text.includes("Job Ledger"));
+    const ledger = dbSearch.results.find((db: any) => db.title[0]?.plain_text.includes("Job Ledger") || db.title[0]?.plain_text.includes("Talent Pool"));
     
-    if (!ledger) throw new Error("Job Ledger not found in Workspace. Run UI setup first.");
+    if (!ledger) throw new Error("Job Ledger/Talent Pool not found in Workspace. Run UI setup first.");
     
     return {
       contents: [{
@@ -75,7 +74,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: "run_forensic_audit",
-        description: "Scrapes a job posting URL and analyzes it for scam risks and skill matching, then logs it to the Notion Job Ledger.",
+        description: "Scrapes a job posting URL and performs a deep forensic analysis for scam risks, ghost job indicators, and cultural mismatch, then logs it to the Notion Job Ledger.",
         inputSchema: {
           type: "object",
           properties: {
@@ -108,43 +107,74 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "run_forensic_audit": {
         const url = args?.url as string;
         
-        // 1. Scrape
-        let text = "";
-        try {
-          const res = await axios.get(url, { headers: { "User-Agent": "Mozilla/5.0" }, timeout: 8000 });
-          const $ = cheerio.load(res.data);
-          text = $("body").text().replace(/\s+/g, " ").trim().substring(0, 3000);
-        } catch {
-          text = "Failed to scrape job content directly. Assume basic context based on URL domain.";
-        }
-        
-        // 2. Gemini Analysis
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-        const prompt = `You are Lumina. Analyze domain: ${new URL(url).hostname} | Content: ${text}
-        Return EXACT raw JSON matching: { "safetyScore": number, "matchScore": number, "verdict": "🟢 VERIFIED" | "🔴 SCAM RISK" | "🟡 PENDING_APPROVAL", "reasoning": "...", "pitch": "...", "jobTitle": "..." }`;
-        const aiRes = await model.generateContent(prompt);
-        const analysis = JSON.parse(aiRes.response.text().replace(/```json/g, "").replace(/```/g, "").trim());
+        // 1. Intelligence Engine Execution
+        const analysis = await runForensicAudit(url);
 
-        // 3. Find Ledger
+        // 2. Find Ledger
         const dbSearch = await notion.search({ filter: { property: "object", value: "database" } });
-        const ledger = dbSearch.results.find((db: any) => db.title[0]?.plain_text.includes("Job Ledger"));
-        if (!ledger) throw new Error("Job Ledger not found.");
+        // Look for "Job Ledger" OR "Talent Pool" (fallback for demo simplicity)
+        const ledger = dbSearch.results.find((db: any) => db.title[0]?.plain_text.includes("Job Ledger") || db.title[0]?.plain_text.includes("Talent Pool"));
+        if (!ledger) throw new Error("Job Ledger database not found. Please initialize via the web dashboard first.");
 
-        // 4. Sync to Notion
+        // 3. Sync to Notion
+        // Note: We adapt the properties based on what we likely have in the DB.
+        // For a robust implementation, we'd check the schema, but for hackathon speed we assume the 'Job Ledger' schema.
+        
+        const properties: any = {
+           "Name": { title: [{ text: { content: analysis.jobDetails.title } }] },
+           "Job Link": { url: url },
+           "Status": { select: { name: analysis.verdict } },
+           "Match Score": { number: analysis.score / 100 },
+           "Tailored Pitch": { rich_text: [{ text: { content: `CULTURE MATCH: ${analysis.analysis.cultureMatch}\n\nSUMMARY: ${analysis.jobDetails.summary}` } }] }
+        };
+
+        // If Safety Score property exists (optional check), we could add it. 
+        // We'll stick to the core properties defined in the setup guide.
+
         const newPage = await notion.pages.create({
           parent: { database_id: ledger.id },
-          properties: {
-            "Name": { title: [{ text: { content: analysis.jobTitle || "Analyzed Job" } }] },
-            "Job Link": { url: url },
-            "Status": { select: { name: analysis.verdict } },
-            "Match Score": { number: analysis.matchScore / 100 },
-            "Safety Score": { number: analysis.safetyScore / 100 },
-            "Tailored Pitch": { rich_text: [{ text: { content: analysis.pitch } }] },
-            "Approved": { checkbox: true }
-          }
+          properties: properties,
+          children: [
+            {
+              object: "block",
+              type: "callout",
+              callout: {
+                rich_text: [{ type: "text", text: { content: `VERDICT: ${analysis.verdict} (${analysis.score}%)` } }],
+                icon: { emoji: analysis.score > 80 ? "🟢" : analysis.score > 50 ? "🟡" : "🔴" },
+                color: analysis.score > 80 ? "green_background" : "red_background"
+              }
+            },
+            {
+              object: "block",
+              type: "heading_3",
+              heading_3: { rich_text: [{ type: "text", text: { content: "🚩 Forensic Flags" } }] }
+            },
+            {
+              object: "block",
+              type: "bulleted_list_item",
+              bulleted_list_item: { rich_text: [{ type: "text", text: { content: analysis.analysis.flags.join(", ") || "No major red flags detected." } }] }
+            },
+            {
+              object: "block",
+              type: "heading_3",
+              heading_3: { rich_text: [{ type: "text", text: { content: "🕵️ Hidden Signals" } }] }
+            },
+            {
+              object: "block",
+              type: "paragraph",
+              paragraph: { rich_text: [{ type: "text", text: { content: analysis.analysis.hiddenSignals.join("\n") } }] }
+            }
+          ]
         });
 
-        return { content: [{ type: "text", text: `[FORENSIC_AUDIT_COMPLETE] Successfully analyzed and logged to Notion Ledger: ${(newPage as any).url}` }] };
+        return { 
+          content: [
+            { 
+              type: "text", 
+              text: `[FORENSIC_AUDIT_COMPLETE] Analyzed ${analysis.jobDetails.company}. Verdict: ${analysis.verdict}. Logged to Notion: ${(newPage as any).url}` 
+            }
+          ] 
+        };
       }
 
       case "generate_career_syllabus": {

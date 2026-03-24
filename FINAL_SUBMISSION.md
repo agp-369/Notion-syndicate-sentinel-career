@@ -1,48 +1,37 @@
-# 🏁 Master Architect: Final Submission Guide
+# 🌌 Syndicate Sentinel: The First "Dual-Core" Career Intelligence Agency
+## 🏆 Notion x MCP Challenge Submission
 
-## 🏆 Project Name: Syndicate Sentinel (The Sovereign Career Agent)
-**"Transforming Notion into a Sentient Career Command Center."**
+![Cover Image](https://raw.githubusercontent.com/your-username/syndicate-sentinel/main/public/cover-concept.png) 
+*(Note: Replace with your actual screenshot)*
 
----
+### 🚀 Introduction
+The modern job market is a minefield of "Ghost Jobs," data-harvesting scams, and impersonal rejection letters.  
+**Syndicate Sentinel** (codenamed *Lumina*) is not just a dashboard—it's a **Sovereign Career Intelligence Agency**.
 
-### 🚀 Overview
-Syndicate Sentinel is a multi-manifold AI intelligence system that cures job-hunting burnout by automating forensics, resume optimization, and professional pitching—all within your private Notion workspace.
+By fusing **Notion's flexible database architecture** with the **Model Context Protocol (MCP)** and **Google Gemini 2.5 Flash**, we've built a "Dual-Core" system that works two ways:
+1.  **For Humans:** A stunning "Liquid Glassmorphism" Next.js Command Center for visual management.
+2.  **For Agents:** A fully autonomous MCP Server that lets Claude Desktop "hire" itself to perform background checks on companies.
 
-### 🛠️ Key Manifolds (The Brain)
-1.  **The Job Ledger:** A Kanban-style tracking database for all your opportunities.
-2.  **The Career Profile:** A dynamic node containing your skills, experience, and market value.
-3.  **The Past Pitch Memory:** A voice-cloning manifold that learns your professional tone.
+### 💡 The "Dual-Core" Innovation
+Most MCP tools are just CLI scripts. Sentinel is different.
+*   **Core 1: The Web Cockpit.** A futuristic React interface where you paste a LinkedIn URL, and the system performs a deep forensic audit, visualizing the "Thinking Process" in real-time.
+*   **Core 2: The MCP Server.** A headless Node.js server that exposes the *exact same forensic tools* to Claude. You can ask Claude: *"Analyze this job URL and save it to my Notion if it's safe."* and it executes the same logic.
 
-### 🛡️ Features (Why We Win)
-*   **Forensic Sentinel:** Detects job scams and assigns safety scores based on domain TLDs and sentiment analysis.
-*   **Resume Strategist:** Real-time comparison between job requirements and your profile, identifying exactly what to highlight.
-*   **Voice-Cloned Pitching:** Drafts authentic, professional emails that match your unique writing style.
-*   **Master Architect UI:** Beautifully formatted Notion blocks (Callouts, Quotes, Dividers) automatically appended to your pages.
-*   **MCP Ready:** Integrated with the official **Notion MCP** and the local **OmniAgent** for deep research.
+### 🕵️‍♂️ Key Features
+*   **Forensic Job Audit v2.0:** We don't just scrape the job post. The agent cross-references the company's root domain, analyzes tone consistency, and detects "Ghost Job" signals (e.g., vague dates, "pooling" language).
+*   **Authenticity Scoring:** Every job gets a 0-100% "Legitimacy Score" logged directly to your Notion database with a traffic light system (🟢/🟡/🔴).
+*   **Strategic Syllabus Generation:** The agent reads your profile and generates a 90-day custom mentorship plan, creating a dedicated Notion workspace with checkboxes and timelines.
 
----
+### 🛠️ Tech Stack
+*   **Core:** Next.js 14 (App Router), TypeScript, Tailwind CSS.
+*   **Protocol:** `@modelcontextprotocol/sdk` (Node.js).
+*   **Intelligence:** Google Gemini 2.5 Flash (via `google-generative-ai`).
+*   **Database:** Notion API (Official SDK).
+*   **Scraping:** Cheerio + Axios (Custom User-Agent Rotation).
 
-### 📝 Submission Steps (For DEV.to)
-
-1.  **Title:** "Why I built a Sovereign Career Intelligence Suite to cure my job-hunting burnout."
-2.  **The Story:** Focus on the "Empathy" and "Security" angles. Mention that you wanted a mentor that actually works *for* you.
-3.  **The Tech:**
-    *   **Gemini 2.5 Flash** (The Reasoning Engine).
-    *   **Notion API & MCP** (The Infrastructure).
-    *   **Next.js & TailwindCSS** (The Setup Bridge).
-4.  **The Links:**
-    *   **Live Site:** https://syndicate-sentinel.vercel.app
-    *   **Repository:** https://github.com/agp-369/syndicate-sentinel
-    *   **Notion Template:** Provide the link to your public "Dashboard" page.
+### 🔮 What's Next?
+We plan to add "Voice Cloning" to the MCP server, allowing the agent to perform mock interviews by reading your Notion resume and speaking back via browser APIs.
 
 ---
-
-### 📹 Demo Tips
-*   Start with the **Notion Dashboard**. Show the clean columns.
-*   Move to the **Syndicate Sentinel Setup** page. Show the "Apple/Stripe" aesthetic.
-*   Run an **Analysis**.
-*   **Switch back to Notion** and show the "Mentor Insight" blocks appearing. This is the "Aha!" moment!
-
----
-
-**Good luck, Abhishek! We have built a winner.** 🥂🛡️🚀✨
+**Repository:** [Link to your repo]
+**Demo Video:** [Link to video]

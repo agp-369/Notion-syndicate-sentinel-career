@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { runForensicAudit } from "@/lib/intelligence";
 
 export async function POST(req: Request) {
   const { mode, accessToken, payload } = await req.json();
@@ -96,6 +97,52 @@ export async function POST(req: Request) {
       });
       const data = await res.json();
       return NextResponse.json({ success: true, results: data.results });
+    }
+
+    // 🕵️‍♂️ FORENSIC AUDIT: Deep Scan & Log
+    if (mode === "FORENSIC_AUDIT" && payload.url) {
+      // 1. Run Intelligence Engine
+      const analysis = await runForensicAudit(payload.url);
+
+      // 2. Find Database (Reuse scan logic or use provided ID)
+      // Ideally we should pass the DB ID from the frontend to avoid re-scanning
+      const dbId = payload.dbId; 
+      
+      if (dbId) {
+         // 3. Create Page in Notion
+         const res = await fetch("https://api.notion.com/v1/pages", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            parent: { database_id: dbId },
+            properties: {
+              "Name": { title: [{ text: { content: analysis.jobDetails.title } }] },
+              "Role": { select: { name: "Analyzed Job" } }, // Fallback if 'Role' is the column
+              "Skills": { multi_select: analysis.analysis.flags.map(f => ({ name: f.substring(0,20) })) } // Use flags as tags
+            },
+            children: [
+              {
+                object: "block",
+                type: "callout",
+                callout: {
+                  rich_text: [{ type: "text", text: { content: `VERDICT: ${analysis.verdict} (${analysis.score}%)` } }],
+                  icon: { emoji: analysis.score > 80 ? "🟢" : analysis.score > 50 ? "🟡" : "🔴" },
+                  color: analysis.score > 80 ? "green_background" : "red_background"
+                }
+              },
+              {
+                object: "block",
+                type: "paragraph",
+                paragraph: { rich_text: [{ type: "text", text: { content: `SUMMARY: ${analysis.jobDetails.summary}` } }] }
+              }
+            ]
+          }),
+        });
+        const data = await res.json();
+        return NextResponse.json({ success: true, analysis, url: data.url });
+      }
+      
+      return NextResponse.json({ success: true, analysis, url: null });
     }
 
     // 🚀 SYNC: Generate Career Strategy
