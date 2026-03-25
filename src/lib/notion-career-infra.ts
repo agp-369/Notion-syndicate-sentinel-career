@@ -24,23 +24,23 @@ export class NotionCareerInfra {
 
   async findOrCreateCareerPage(): Promise<string> {
     const search = await this.notion.search({
-      query: "Career OS",
+      query: "Forensic Career OS",
       filter: { property: "object", value: "page" },
-      page_size: 5,
+      page_size: 10,
     });
 
     for (const page of search.results as any[]) {
       const title = page.properties?.title?.title?.[0]?.plain_text || "";
-      if (title.toLowerCase().includes("career os") || title.toLowerCase().includes("agent os")) {
+      if (title.toLowerCase().includes("forensic career os") || title.toLowerCase().includes("agent career os")) {
         return page.id;
       }
     }
 
     const newPage = await this.notion.pages.create({
       parent: { type: "workspace", workspace: true } as any,
-      icon: { emoji: "🎯" },
+      icon: { emoji: "🔍" },
       properties: {
-        title: { title: [{ text: { content: "🎯 Agent Career OS" } }] },
+        title: { title: [{ text: { content: "🔍 Forensic Career OS" } }] },
       },
     });
 
@@ -78,8 +78,8 @@ export class NotionCareerInfra {
       researchSectionId: "",
     };
 
-    // Add welcome blocks to career page
-    await this.addWelcomeContent(careerPageId);
+    // Add welcome blocks with user info
+    await this.addWelcomeContent(careerPageId, profile);
 
     // Create Profile page
     infra.profilePageId = await this.createProfilePage(careerPageId, profile);
@@ -99,15 +99,23 @@ export class NotionCareerInfra {
     return infra;
   }
 
-  private async addWelcomeContent(pageId: string): Promise<void> {
-    const welcomeBlocks = [
-      { type: "callout", callout: { rich_text: [{ text: { content: `🚀 Agent Career OS initialized! AI Agent ready to help manage your career.` } }], icon: { emoji: "🤖" }, color: "blue_background" as const } },
-      { type: "paragraph", paragraph: { rich_text: [{ text: { content: "Use the chat to instruct me: Add jobs, update status, create roadmaps, research opportunities." } }] } },
+  private async addWelcomeContent(pageId: string, profile: UserProfile): Promise<void> {
+    const welcomeBlocks: any[] = [
+      { type: "callout", callout: { rich_text: [{ text: { content: `🔍 Forensic Career OS initialized for ${profile.name || "you"}!` } }], icon: { emoji: "🤖" }, color: "blue_background" } },
+      { type: "heading_2", heading_2: { rich_text: [{ text: { content: `Welcome, ${profile.name || "Professional"}!` } }] } },
+      { type: "paragraph", paragraph: { rich_text: [{ text: { content: profile.headline || "Career professional ready for the next opportunity" } }] } },
+      { type: "divider", divider: {} },
+      { type: "heading_3", heading_3: { rich_text: [{ text: { content: "Your Profile at a Glance" } }] } },
+      { type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: `📍 Role: ${profile.currentRole || "Not specified"} at ${profile.currentCompany || "Not specified"}` } }] } },
+      { type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: `⏱️ Experience: ${profile.yearsOfExperience || 0}+ years` } }] } },
+      { type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: `🛠️ Skills: ${profile.skills?.length || 0} identified` } }] } },
+      { type: "divider", divider: {} },
+      { type: "callout", callout: { rich_text: [{ text: { content: "💡 Navigate to each section using the tabs above. Use the chat to give natural language commands like 'find me React jobs' or 'analyze this URL'." } }], icon: { emoji: "💡" }, color: "yellow_background" } },
     ];
     
     await this.notion.blocks.children.append({
       block_id: pageId,
-      children: welcomeBlocks as any,
+      children: welcomeBlocks,
     });
   }
 
@@ -115,17 +123,28 @@ export class NotionCareerInfra {
     const page = await this.notion.pages.create({
       parent: { page_id: careerPageId },
       icon: { emoji: "👤" },
-      properties: { title: { title: [{ text: { content: `Profile: ${profile.name || "My Profile"}` } }] } },
+      properties: { title: { title: [{ text: { content: `👤 ${profile.name || "My Profile"}` } }] } },
     });
 
     const blocks: any[] = [
-      { type: "heading_2", heading_2: { rich_text: [{ text: { content: "Summary" } }] } },
+      { type: "heading_2", heading_2: { rich_text: [{ text: { content: "Professional Summary" } }] } },
       { type: "paragraph", paragraph: { rich_text: [{ text: { content: profile.headline || profile.summary || "Career professional" } }] } },
-      { type: "heading_3", heading_3: { rich_text: [{ text: { content: "Tech Stack" } }] } },
+      { type: "heading_3", heading_3: { rich_text: [{ text: { content: "Current Position" } }] } },
+      { type: "paragraph", paragraph: { rich_text: [{ text: { content: `🎯 ${profile.currentRole || "Not specified"} @ ${profile.currentCompany || "Not specified"}` } }] } },
+      { type: "heading_3", heading_3: { rich_text: [{ text: { content: "Experience" } }] } },
+      { type: "paragraph", paragraph: { rich_text: [{ text: { content: `⏱️ ${profile.yearsOfExperience || 0}+ years of professional experience` } }] } },
+      { type: "heading_3", heading_3: { rich_text: [{ text: { content: "Tech Stack & Skills" } }] } },
     ];
 
-    for (const skill of profile.skills.slice(0, 10)) {
-      blocks.push({ type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: skill } }] } });
+    for (const skill of (profile.skills || []).slice(0, 15)) {
+      blocks.push({ type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: `⚡ ${skill}` } }] } });
+    }
+
+    if (profile.goals && profile.goals.length > 0) {
+      blocks.push({ type: "heading_3", heading_3: { rich_text: [{ text: { content: "Career Goals" } }] } });
+      for (const goal of profile.goals.slice(0, 5)) {
+        blocks.push({ type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: `🎯 ${goal}` } }] } });
+      }
     }
 
     await this.notion.blocks.children.append({ block_id: page.id, children: blocks });
@@ -274,9 +293,29 @@ export class NotionCareerInfra {
         else if (title.includes("Skills")) sections.skills = block.id;
         else if (title.includes("Roadmap")) sections.roadmaps = block.id;
         else if (title.includes("Research")) sections.research = block.id;
+        else if (title.includes("Profile")) sections.profile = block.id;
       }
     }
 
     return sections;
+  }
+
+  async deleteInfrastructure(): Promise<void> {
+    try {
+      const search = await this.notion.search({
+        query: "Forensic Career OS",
+        filter: { property: "object", value: "page" },
+        page_size: 5,
+      });
+
+      for (const page of search.results as any[]) {
+        const title = page.properties?.title?.title?.[0]?.plain_text || "";
+        if (title.includes("Forensic Career OS") || title.includes("Agent Career OS")) {
+          await this.notion.pages.update({ page_id: page.id, archived: true });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to delete infrastructure:", err);
+    }
   }
 }
