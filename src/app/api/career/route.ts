@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { UserProfileReader } from "@/lib/notion-profile-reader";
-import { CareerInfrastructureCreator } from "@/lib/notion-career-infra";
+import { NotionCareerInfra } from "@/lib/notion-career-infra";
 import { JobRecommendationEngine } from "@/lib/job-engine";
 
 const COOKIE_NAME = "notion_token";
@@ -72,24 +72,33 @@ export async function POST(req: Request) {
       }
 
       // Create full infrastructure
-      const infraCreator = new CareerInfrastructureCreator(token);
-      const infra = await infraCreator.createInfrastructure(targetPageId, profile);
+      const infraCreator = new NotionCareerInfra(token);
+      
+      // Find or create the Career OS page
+      const careerPageId = await infraCreator.findOrCreateCareerPage();
+      
+      // Check if infrastructure already exists
+      const exists = await infraCreator.infrastructureExists(careerPageId);
+      if (!exists) {
+        await infraCreator.createInfrastructure(careerPageId, profile);
+      }
+
+      // Get infrastructure sections for adding jobs/skills
+      const infra = await infraCreator.getFullInfrastructure(careerPageId);
 
       // Generate job recommendations
       const jobEngine = new JobRecommendationEngine();
       const jobs = await jobEngine.generateRecommendations(profile, 5);
       
-      // Add jobs to Notion database
+      // Add jobs to Notion as pages
       for (const job of jobs) {
-        if (infra.jobsDatabaseId) {
-          await infraCreator.addJobRecommendation(infra.jobsDatabaseId, {
+        if (infra.jobs) {
+          await infraCreator.addJobPage(infra.jobs, {
             title: job.title,
             company: job.company,
             matchScore: job.matchScore,
+            status: "researching",
             url: job.url,
-            reason: job.reason,
-            location: job.location,
-            salary: job.salary,
           });
         }
       }
@@ -98,12 +107,10 @@ export async function POST(req: Request) {
       const trendingSkills = await jobEngine.analyzeSkillGaps(profile);
       
       for (const skill of trendingSkills.slice(0, 5)) {
-        if (infra.skillsDatabaseId) {
-          await infraCreator.addSkillGap(infra.skillsDatabaseId, {
-            skill: skill.skill,
-            importance: skill.demand > 0.8 ? "high" : skill.demand > 0.5 ? "medium" : "low",
-            trending: skill.growth === "hot",
-            learningTime: skill.learningTime,
+        if (infra.skills) {
+          await infraCreator.addSkillPage(infra.skills, {
+            name: skill.skill,
+            demand: skill.demand,
           });
         }
       }

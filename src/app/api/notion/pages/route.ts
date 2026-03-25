@@ -46,8 +46,24 @@ export async function GET() {
         url: page.url,
         lastEdited: page.last_edited_time,
         icon: page.icon?.emoji || page.icon?.external?.url || null,
+        parentId: page.parent?.page_id || page.parent?.database_id || null,
+        parentType: page.parent?.type || null,
+        hasChildren: false,
       };
     });
+
+    // Check for child pages
+    for (const page of pages) {
+      try {
+        const children = await notion.blocks.children.list({
+          block_id: page.id,
+          page_size: 1,
+        });
+        page.hasChildren = children.results.length > 0;
+      } catch {
+        page.hasChildren = false;
+      }
+    }
 
     return NextResponse.json({
       success: true,
