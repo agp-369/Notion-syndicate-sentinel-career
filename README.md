@@ -19,17 +19,16 @@ Rather than just building a web wrapper, Lumina features a true **Dual-Node Arch
 
 ## ⚡ Core Features
 
-### 🕵️‍♂️ Module 1: The Forensic Job Auditor
-Tired of "Ghost Jobs" and recruitment scams? Paste a job posting URL into Lumina.
-* **Autonomous Web Scraping:** Extracts domain and job description context.
-* **Gemini DNA Profiling:** Analyzes requirement stringency and fraud heuristics to generate a 0-100% "Authenticity Score".
-* **Secure Sync:** Writes a beautifully formatted verdict (using Notion's advanced UI Callout & Toggle blocks via `append_block_children`) directly into your private **Notion Job Ledger**.
+### 🕵️‍♂️ Module 1: Forensic Intelligence Engine v2.0
+Tired of "Ghost Jobs" and recruitment scams? Paste a job posting URL into the Sentinel.
+*   **Deep Cross-Reference:** Unlike basic scrapers, v2.0 analyzes the **root domain reputation** and **tone consistency** between the job post and company homepage.
+*   **Ghost Job Detection:** Flagging vague "evergreen" descriptions and pooling language.
+*   **Secure Sync:** Writes a beautifully formatted verdict directly into your **Notion Career Ledger**.
 
-### 🎓 Module 2: Intent-Driven Career Mentorship
-Enter a mentee's name and their target trajectory (e.g., *Junior React Engineer* -> *Principal AI Architect*).
-* **Agentic Matchmaker:** Calculates a Synergy Score with the optimal internal mentor.
-* **Gamified 90-Day Pipeline:** Generates an actionable, 3-phase syllabus.
-* **Workspace Provisioning:** Seamlessly provisions a dedicated "Mentorship Workspace" inside your Notion environment with interactive checklists.
+### 🎓 Module 2: Strategic Syllabus Provisioning
+Enter a target trajectory (e.g., *Junior React Engineer* -> *Principal AI Architect*).
+*   **90-Day Roadmap:** Generates an actionable, 3-phase syllabus using Gemini 2.5 Flash.
+*   **Workspace Auto-Provisioning:** Seamlessly builds a dedicated Notion page with interactive checklists and tracking.
 
 ---
 
