@@ -47,106 +47,92 @@ export async function POST(req: Request) {
   try {
     // ── FULL SETUP: Auto-decide mode (no page selection needed) ──────────────
     if (mode === "FULL_SETUP") {
-      const profileReader = new UserProfileReader(token);
-      const jobEngine = new JobRecommendationEngine();
-      const infraCreator = new NotionCareerInfra(token);
-      
-      // Auto-discover profile pages and read profile
-      const discoveredPages = await profileReader.discoverProfilePages();
-      const profile = await profileReader.readUserProfile(discoveredPages);
-      
-      // Find or create the Forensic Career OS page
-      const careerPageId = await infraCreator.findOrCreateCareerPage();
-      
-      // Check if infrastructure already exists
-      const exists = await infraCreator.infrastructureExists(careerPageId);
-      
-      if (!exists) {
-        // Create full infrastructure with user details
-        await infraCreator.createInfrastructure(careerPageId, profile);
-      }
-
-      // Get infrastructure sections
-      const infra = await infraCreator.getFullInfrastructure(careerPageId);
-
-      // Generate job recommendations
-      const jobs = await jobEngine.generateRecommendations(profile, 8);
-      
-      // Add jobs to Notion as pages
-      const createdJobs = [];
-      for (const job of jobs.slice(0, 5)) {
-        if (infra.jobs) {
-          await infraCreator.addJobPage(infra.jobs, {
-            title: job.title,
-            company: job.company,
-            matchScore: job.matchScore,
-            status: "researching",
-            url: job.url,
-          });
-          createdJobs.push(job);
+      try {
+        const profileReader = new UserProfileReader(token);
+        const jobEngine = new JobRecommendationEngine();
+        const infraCreator = new NotionCareerInfra(token);
+        
+        // Auto-discover profile pages and read profile
+        const discoveredPages = await profileReader.discoverProfilePages();
+        const profile = await profileReader.readUserProfile(discoveredPages);
+        
+        // Find or create the Forensic Career OS page
+        const careerPageId = await infraCreator.findOrCreateCareerPage();
+        
+        // Check if infrastructure already exists
+        const exists = await infraCreator.infrastructureExists(careerPageId);
+        
+        if (!exists) {
+          // Create full infrastructure with user details
+          await infraCreator.createInfrastructure(careerPageId, profile);
         }
-      }
 
-      // Analyze skill gaps and create recommendations
-      const trendingSkills = await jobEngine.analyzeSkillGaps(profile);
-      
-      for (const skill of trendingSkills.slice(0, 8)) {
-        if (infra.skills) {
-          await infraCreator.addSkillPage(infra.skills, {
-            name: skill.skill,
-            demand: skill.demand,
-          });
-        }
-      }
+        // Get infrastructure sections
+        const infra = await infraCreator.getFullInfrastructure(careerPageId);
 
-      // Run forensic analysis on job URLs
-      const forensicReports = [];
-      for (const job of createdJobs.slice(0, 3)) {
-        if (job.url) {
-          try {
-            const analysis = await jobEngine.forensicAnalysis(job.url);
-            forensicReports.push({
-              url: job.url,
-              verdict: analysis.verdict,
-              trustScore: analysis.trustScore,
-              redFlags: analysis.redFlags || [],
-              cultureAnalysis: analysis.cultureAnalysis || "",
-              timestamp: new Date().toISOString(),
+        // Generate job recommendations
+        const jobs = await jobEngine.generateRecommendations(profile, 8);
+        
+        // Add jobs to Notion as pages
+        const createdJobs = [];
+        for (const job of jobs.slice(0, 5)) {
+          if (infra.jobs) {
+            await infraCreator.addJobPage(infra.jobs, {
+              title: job.title,
               company: job.company,
-              role: job.title,
+              matchScore: job.matchScore,
+              status: "researching",
+              url: job.url,
             });
-          } catch {
-            // Skip failed forensic analyses
+            createdJobs.push(job);
           }
         }
-      }
 
-      return NextResponse.json({
-        success: true,
-        profile,
-        jobs: createdJobs.map((j, i) => ({
-          ...j,
-          id: `job_${i}`,
-          status: "researching",
-          scanDNA: { authenticity: 85, cultureFit: 78, growthPotential: 82 },
-          lastScan: new Date().toLocaleDateString(),
-        })),
-        skills: trendingSkills.slice(0, 8).map((s: any, i: number) => ({
-          ...s,
-          category: s.category || "Technical",
-          matchWithTechStack: profile.techStack?.some((t: string) => t.toLowerCase().includes(s.skill.toLowerCase())) ? 85 : 45,
-        })),
-        forensicReports,
-        infrastructure: infra,
-        stats: {
-          skillsFound: profile.skills.length,
-          jobsCreated: createdJobs.length,
-          skillsAnalyzed: trendingSkills.length,
-          forensicScans: forensicReports.length,
-        },
-        setupComplete: true,
-        message: "Forensic Career OS created successfully!",
-      });
+        // Analyze skill gaps and create recommendations
+        const trendingSkills = await jobEngine.analyzeSkillGaps(profile);
+        
+        for (const skill of trendingSkills.slice(0, 8)) {
+          if (infra.skills) {
+            await infraCreator.addSkillPage(infra.skills, {
+              name: skill.skill,
+              demand: skill.demand,
+            });
+          }
+        }
+
+        return NextResponse.json({
+          success: true,
+          profile,
+          jobs: createdJobs.map((j, i) => ({
+            ...j,
+            id: `job_${i}`,
+            status: "researching",
+            scanDNA: { authenticity: 85, cultureFit: 78, growthPotential: 82 },
+            lastScan: new Date().toLocaleDateString(),
+          })),
+          skills: trendingSkills.slice(0, 8).map((s: any) => ({
+            ...s,
+            category: s.category || "Technical",
+            matchWithTechStack: profile.techStack?.some((t: string) => t.toLowerCase().includes(s.skill.toLowerCase())) ? 85 : 45,
+          })),
+          forensicReports: [],
+          infrastructure: infra,
+          stats: {
+            skillsFound: profile.skills.length,
+            jobsCreated: createdJobs.length,
+            skillsAnalyzed: trendingSkills.length,
+            forensicScans: 0,
+          },
+          setupComplete: true,
+          message: "Forensic Career OS created successfully!",
+        });
+      } catch (setupErr: any) {
+        console.error("Setup error:", setupErr);
+        return NextResponse.json({
+          success: false,
+          error: "Setup failed: " + (setupErr.message || "Unknown error"),
+        }, { status: 500 });
+      }
     }
 
     // ── SETUP WITH SELECTED PAGES ─────────────────────────────────────────────
