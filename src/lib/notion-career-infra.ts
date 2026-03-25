@@ -24,28 +24,33 @@ export class NotionCareerInfra {
   }
 
   async findOrCreateCareerPage(): Promise<string> {
-    const search = await this.notion.search({
-      query: "Forensic Career OS",
-      filter: { property: "object", value: "page" },
-      page_size: 10,
-    });
+    try {
+      const search = await this.notion.search({
+        query: "Forensic Career OS",
+        filter: { property: "object", value: "page" },
+        page_size: 10,
+      });
 
-    for (const page of search.results as any[]) {
-      const title = page.properties?.title?.title?.[0]?.plain_text || "";
-      if (title.toLowerCase().includes("forensic career os") || title.toLowerCase().includes("agent career os")) {
-        return page.id;
+      for (const page of search.results as any[]) {
+        const title = page.properties?.title?.title?.[0]?.plain_text || "";
+        if (title.toLowerCase().includes("forensic career os") || title.toLowerCase().includes("agent career os")) {
+          return page.id;
+        }
       }
+
+      const newPage = await this.notion.pages.create({
+        parent: { type: "workspace", workspace: true } as any,
+        icon: { type: "emoji", emoji: "🔍" },
+        properties: {
+          title: { title: [{ text: { content: "Forensic Career OS" } }] },
+        },
+      });
+
+      return newPage.id;
+    } catch (error) {
+      console.error("Error finding/creating career page:", error);
+      throw new Error("Failed to access Notion workspace. Please ensure you've shared a page with the integration.");
     }
-
-    const newPage = await this.notion.pages.create({
-      parent: { type: "workspace", workspace: true } as any,
-      icon: { type: "emoji", emoji: "🔍" },
-      properties: {
-        title: { title: [{ text: { content: "Forensic Career OS" } }] },
-      },
-    });
-
-    return newPage.id;
   }
 
   async infrastructureExists(careerPageId: string): Promise<boolean> {
@@ -85,14 +90,18 @@ export class NotionCareerInfra {
       progressId: "",
     };
 
-    await this.addWelcomeContent(careerPageId, profile);
-    infra.profilePageId = await this.createProfilePage(careerPageId, profile);
-    infra.jobsSectionId = await this.createJobsSection(careerPageId);
-    infra.skillsSectionId = await this.createSkillsSection(careerPageId, profile);
-    infra.roadmapsSectionId = await this.createRoadmapsSection(careerPageId);
-    infra.researchSectionId = await this.createResearchSection(careerPageId);
-    infra.gamificationId = await this.createGamificationSection(careerPageId, profile);
-    infra.progressId = await this.createProgressSection(careerPageId);
+    try {
+      await this.addWelcomeContent(careerPageId, profile);
+      infra.profilePageId = await this.createProfilePage(careerPageId, profile);
+      infra.jobsSectionId = await this.createJobsSection(careerPageId);
+      infra.skillsSectionId = await this.createSkillsSection(careerPageId, profile);
+      infra.roadmapsSectionId = await this.createRoadmapsSection(careerPageId);
+      infra.researchSectionId = await this.createResearchSection(careerPageId);
+      infra.gamificationId = await this.createGamificationSection(careerPageId, profile);
+      infra.progressId = await this.createProgressSection(careerPageId);
+    } catch (error) {
+      console.error("Error creating infrastructure:", error);
+    }
 
     return infra;
   }
@@ -343,59 +352,69 @@ export class NotionCareerInfra {
   }
 
   async addResearchPage(researchSectionId: string, research: { title: string; company: string; verdict: string; trustScore: number; redFlags: string[] }): Promise<string> {
-    const isLegit = research.verdict.includes("LEGITIMATE");
-    const emojiChar = isLegit ? "✅" : "⚠️";
-    const color = isLegit ? "green_background" : "red_background";
-    
-    const page = await this.notion.pages.create({
-      parent: { page_id: researchSectionId },
-      icon: { type: "emoji", emoji: emojiChar },
-      properties: { title: { title: [{ text: { content: research.title } }] } },
-    });
+    try {
+      const isLegit = research.verdict.includes("LEGITIMATE");
+      const emojiChar = isLegit ? "✅" : "⚠️";
+      const color = isLegit ? "green_background" : "red_background";
+      
+      const page = await this.notion.pages.create({
+        parent: { page_id: researchSectionId },
+        icon: { type: "emoji", emoji: emojiChar },
+        properties: { title: { title: [{ text: { content: research.title } }] } },
+      });
 
-    const blocks: any[] = [
-      { type: "callout", callout: { rich_text: [{ text: { content: research.verdict + " | Trust Score: " + research.trustScore + "%" } }], icon: { type: "emoji", emoji: emojiChar }, color } },
-      { type: "heading_2", heading_2: { rich_text: [{ text: { content: "Analysis Summary" } }] } },
-      { type: "paragraph", paragraph: { rich_text: [{ text: { content: "Company: " + research.company } }] } },
-    ];
+      const blocks: any[] = [
+        { type: "callout", callout: { rich_text: [{ text: { content: research.verdict + " | Trust Score: " + research.trustScore + "%" } }], icon: { type: "emoji", emoji: emojiChar }, color } },
+        { type: "heading_2", heading_2: { rich_text: [{ text: { content: "Analysis Summary" } }] } },
+        { type: "paragraph", paragraph: { rich_text: [{ text: { content: "Company: " + research.company } }] } },
+      ];
 
-    if (research.redFlags.length > 0) {
-      blocks.push(
-        { type: "divider", divider: {} },
-        { type: "callout", callout: { rich_text: [{ text: { content: "Red Flags Detected" } }], icon: { emoji: "warning" }, color: "red_background" } }
-      );
-      for (const flag of research.redFlags) {
-        blocks.push({ type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: flag } }] } });
+      if (research.redFlags.length > 0) {
+        blocks.push(
+          { type: "divider", divider: {} },
+          { type: "callout", callout: { rich_text: [{ text: { content: "Red Flags Detected" } }], icon: { type: "emoji", emoji: "🚩" }, color: "red_background" } }
+        );
+        for (const flag of research.redFlags) {
+          blocks.push({ type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: flag } }] } });
+        }
+      } else {
+        blocks.push(
+          { type: "divider", divider: {} },
+          { type: "callout", callout: { rich_text: [{ text: { content: "No major red flags detected. Company appears legitimate." } }], icon: { type: "emoji", emoji: "✅" }, color: "green_background" } }
+        );
       }
-    } else {
-      blocks.push(
-        { type: "divider", divider: {} },
-        { type: "callout", callout: { rich_text: [{ text: { content: "No major red flags detected. Company appears legitimate." } }], icon: { emoji: "white_check_mark" }, color: "green_background" } }
-      );
-    }
 
-    await this.notion.blocks.children.append({ block_id: page.id, children: blocks });
-    return page.id;
+      await this.notion.blocks.children.append({ block_id: page.id, children: blocks });
+      return page.id;
+    } catch (err) {
+      console.error("Error adding research page:", err);
+      return "";
+    }
   }
 
   async getFullInfrastructure(careerPageId: string): Promise<any> {
-    const children = await this.notion.blocks.children.list({ block_id: careerPageId, page_size: 100 });
-    const sections: any = {};
+    try {
+      const children = await this.notion.blocks.children.list({ block_id: careerPageId, page_size: 100 });
+      const sections: any = {};
 
-    for (const block of children.results as any) {
-      if (block.type === "child_page") {
-        const title = block.child_page?.title || "";
-        if (title.includes("Jobs")) sections.jobs = block.id;
-        else if (title.includes("Skills") || title.includes("DNA")) sections.skills = block.id;
-        else if (title.includes("Roadmap")) sections.roadmaps = block.id;
-        else if (title.includes("Research") || title.includes("Forensic")) sections.research = block.id;
-        else if (title.includes("Profile")) sections.profile = block.id;
-        else if (title.includes("Gamification") || title.includes("Achievement")) sections.gamification = block.id;
-        else if (title.includes("Progress")) sections.progress = block.id;
+      for (const block of children.results as any) {
+        if (block.type === "child_page") {
+          const title = block.child_page?.title || "";
+          if (title.includes("Jobs")) sections.jobs = block.id;
+          else if (title.includes("Skills") || title.includes("DNA")) sections.skills = block.id;
+          else if (title.includes("Roadmap")) sections.roadmaps = block.id;
+          else if (title.includes("Research") || title.includes("Forensic")) sections.research = block.id;
+          else if (title.includes("Profile")) sections.profile = block.id;
+          else if (title.includes("Gamification") || title.includes("Achievement")) sections.gamification = block.id;
+          else if (title.includes("Progress")) sections.progress = block.id;
+        }
       }
-    }
 
-    return sections;
+      return sections;
+    } catch (error) {
+      console.error("Error getting infrastructure:", error);
+      return {};
+    }
   }
 
   async deleteInfrastructure(): Promise<void> {

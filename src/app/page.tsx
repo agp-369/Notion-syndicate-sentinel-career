@@ -279,7 +279,18 @@ export function AgentOSContent() {
         body: JSON.stringify({ mode: "FULL_SETUP", agentAutoDecide: true })
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type");
+      let data;
+      
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await res.text();
+        console.error("Non-JSON response from /api/career:", text.substring(0, 500));
+        addLog(`❌ API Error: ${text.substring(0, 100)}`);
+        setIsLoading(false);
+        return;
+      }
+      
+      data = await res.json();
       
       if (data.success) {
         setProfile(data.profile);
@@ -298,6 +309,7 @@ export function AgentOSContent() {
         addLog(`❌ ${data.error}`);
       }
     } catch (e: any) {
+      console.error("Agent setup error:", e);
       addLog(`❌ Error: ${e.message}`);
     } finally {
       setIsLoading(false);
