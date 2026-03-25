@@ -133,6 +133,16 @@ export function AgentOSContent() {
   const checkConnection = async () => {
     try {
       const res = await fetch("/api/sentinel");
+      
+      // Check if response is OK and is JSON
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await res.text();
+        console.error("Non-JSON response from /api/sentinel:", text.substring(0, 500));
+        addLog(`Error: API returned HTML instead of JSON`);
+        return;
+      }
+      
       const data = await res.json();
       setNotionConnected(data.connected);
       setInfraCreated(data.infraCreated || false);
@@ -144,8 +154,9 @@ export function AgentOSContent() {
           await loadExistingData();
         }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Connection check failed:", e);
+      addLog(`Connection error: ${e.message || e}`);
     }
   };
 
@@ -172,6 +183,17 @@ export function AgentOSContent() {
     setIsLoading(true);
     try {
       const res = await fetch("/api/notion/pages");
+      
+      // Check if response is OK and is JSON
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await res.text();
+        console.error("Non-JSON response:", text.substring(0, 500));
+        addLog(`Error: API returned HTML instead of JSON`);
+        setIsLoading(false);
+        return;
+      }
+      
       const data = await res.json();
       
       if (data.success) {
@@ -179,9 +201,12 @@ export function AgentOSContent() {
         const tree = buildPageTree(data.pages);
         setPageTree(tree);
         addLog(`📁 Found ${data.count} pages in Notion`);
+      } else if (data.error) {
+        addLog(`Error: ${data.error}`);
       }
-    } catch (e) {
-      addLog(`Error loading pages: ${e}`);
+    } catch (e: any) {
+      console.error("Error loading pages:", e);
+      addLog(`Error loading pages: ${e.message || e}`);
     } finally {
       setIsLoading(false);
     }

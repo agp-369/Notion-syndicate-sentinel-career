@@ -73,8 +73,9 @@ export async function GET() {
 
   } catch (err: any) {
     console.error("[NOTION_PAGES]", err);
+    const message = err?.message || "Unknown error";
     return NextResponse.json(
-      { success: false, error: err.message },
+      { success: false, error: message },
       { status: 500 }
     );
   }
