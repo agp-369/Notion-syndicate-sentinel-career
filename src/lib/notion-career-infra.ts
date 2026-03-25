@@ -108,19 +108,11 @@ export class NotionCareerInfra {
 
   private async addWelcomeContent(pageId: string, profile: UserProfile): Promise<void> {
     const name = profile.name || "you";
-    const role = profile.currentRole || "professional";
-    const company = profile.currentCompany || "your company";
-    const skills = profile.skills?.length || 0;
     
     try {
       const welcomeBlocks: any[] = [
         { type: "callout", callout: { rich_text: [{ text: { content: "Forensic Career OS initialized for " + name + "!" } }], icon: { type: "emoji", emoji: "🚀" }, color: "blue_background" } },
-        { type: "paragraph", paragraph: { rich_text: [{ text: { content: "Your AI-powered career companion is ready." } }] } },
-        { type: "heading_2", heading_2: { rich_text: [{ text: { content: "Your Career Snapshot" } }] } },
-        { type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: "Role: " + role + " at " + company } }] } },
-        { type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: "Experience: " + (profile.yearsOfExperience || 0) + "+ years" } }] } },
-        { type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: "Skills: " + skills + " identified" } }] } },
-        { type: "callout", callout: { rich_text: [{ text: { content: "Use the chat assistant for commands like 'find me jobs' or 'analyze URL'" } }], icon: { type: "emoji", emoji: "💡" }, color: "yellow_background" } },
+        { type: "paragraph", paragraph: { rich_text: [{ text: { content: "Use the chat assistant for commands like 'find me jobs' or 'analyze URL'" } }] } },
       ];
       
       await this.notion.blocks.children.append({
@@ -141,20 +133,9 @@ export class NotionCareerInfra {
       });
 
       const blocks: any[] = [
-        { type: "heading_2", heading_2: { rich_text: [{ text: { content: "Professional Profile" } }] } },
-        { type: "paragraph", paragraph: { rich_text: [{ text: { content: profile.headline || profile.summary || "Career professional" } }] } },
-        { type: "heading_2", heading_2: { rich_text: [{ text: { content: "Current Position" } }] } },
-        { type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: "Role: " + (profile.currentRole || "Not specified") } }] } },
-        { type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: "Company: " + (profile.currentCompany || "Not specified") } }] } },
-        { type: "paragraph", paragraph: { rich_text: [{ text: { content: (profile.yearsOfExperience || 0) + "+ years of experience" } }] } },
+        { type: "paragraph", paragraph: { rich_text: [{ text: { content: (profile.currentRole || "Professional") + " at " + (profile.currentCompany || "Company") } }] } },
+        { type: "paragraph", paragraph: { rich_text: [{ text: { content: (profile.yearsOfExperience || 0) + "+ years experience" } }] } },
       ];
-
-      if (profile.skills && profile.skills.length > 0) {
-        blocks.push({ type: "heading_2", heading_2: { rich_text: [{ text: { content: "Skills" } }] } });
-        for (const skill of profile.skills.slice(0, 15)) {
-          blocks.push({ type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: skill } }] } });
-        }
-      }
 
       await this.notion.blocks.children.append({ block_id: page.id, children: blocks });
       return page.id;
@@ -195,16 +176,6 @@ export class NotionCareerInfra {
         icon: { type: "emoji", emoji: "🧬" },
         properties: { title: { title: [{ text: { content: "Skill DNA Analysis" } }] } },
       });
-
-      const blocks: any[] = [
-        { type: "callout", callout: { rich_text: [{ text: { content: "Your skills with market demand analysis." } }], icon: { type: "emoji", emoji: "🧬" }, color: "purple_background" } },
-      ];
-
-      for (const skill of (profile.skills || []).slice(0, 10)) {
-        blocks.push({ type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: skill } }] } });
-      }
-
-      await this.notion.blocks.children.append({ block_id: page.id, children: blocks });
       return page.id;
     } catch (err) {
       console.error("Error creating skills section:", err);
@@ -219,13 +190,6 @@ export class NotionCareerInfra {
         icon: { type: "emoji", emoji: "🗺️" },
         properties: { title: { title: [{ text: { content: "Learning Roadmaps" } }] } },
       });
-
-      const blocks: any[] = [
-        { type: "callout", callout: { rich_text: [{ text: { content: "Personalized learning paths to level up!" } }], icon: { type: "emoji", emoji: "🚀" }, color: "green_background" } },
-        { type: "paragraph", paragraph: { rich_text: [{ text: { content: "Complete courses and track your learning journey." } }] } },
-      ];
-
-      await this.notion.blocks.children.append({ block_id: page.id, children: blocks });
       return page.id;
     } catch (err) {
       console.error("Error creating roadmaps section:", err);
@@ -240,13 +204,6 @@ export class NotionCareerInfra {
         icon: { type: "emoji", emoji: "🔬" },
         properties: { title: { title: [{ text: { content: "Forensic Research" } }] } },
       });
-
-      const blocks: any[] = [
-        { type: "callout", callout: { rich_text: [{ text: { content: "Verify job legitimacy before applying!" } }], icon: { type: "emoji", emoji: "⚠️" }, color: "red_background" } },
-        { type: "paragraph", paragraph: { rich_text: [{ text: { content: "Paste any job URL for deep analysis. AI checks company reputation and red flags." } }] } },
-      ];
-
-      await this.notion.blocks.children.append({ block_id: page.id, children: blocks });
       return page.id;
     } catch (err) {
       console.error("Error creating research section:", err);
@@ -261,16 +218,6 @@ export class NotionCareerInfra {
         icon: { type: "emoji", emoji: "🏆" },
         properties: { title: { title: [{ text: { content: "Gamification" } }] } },
       });
-
-      const blocks: any[] = [
-        { type: "callout", callout: { rich_text: [{ text: { content: "Level up! Complete actions to earn badges." } }], icon: { type: "emoji", emoji: "🎮" }, color: "yellow_background" } },
-        { type: "heading_2", heading_2: { rich_text: [{ text: { content: "Your Stats" } }] } },
-        { type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: "Level: Career Rookie (Level 1)" } }] } },
-        { type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: "XP: 0 / 100" } }] } },
-        { type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: "Badges: 0 earned" } }] } },
-      ];
-
-      await this.notion.blocks.children.append({ block_id: page.id, children: blocks });
       return page.id;
     } catch (err) {
       console.error("Error creating gamification section:", err);
@@ -285,15 +232,6 @@ export class NotionCareerInfra {
         icon: { type: "emoji", emoji: "📊" },
         properties: { title: { title: [{ text: { content: "Progress Tracker" } }] } },
       });
-
-      const blocks: any[] = [
-        { type: "callout", callout: { rich_text: [{ text: { content: "Track your career journey." } }], icon: { type: "emoji", emoji: "📈" }, color: "green_background" } },
-        { type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: "Jobs Researched: 0" } }] } },
-        { type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: "Jobs Applied: 0" } }] } },
-        { type: "bulleted_list_item", bulleted_list_item: { rich_text: [{ text: { content: "Interviews: 0" } }] } },
-      ];
-
-      await this.notion.blocks.children.append({ block_id: page.id, children: blocks });
       return page.id;
     } catch (err) {
       console.error("Error creating progress section:", err);

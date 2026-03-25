@@ -52,9 +52,22 @@ export async function POST(req: Request) {
         const jobEngine = new JobRecommendationEngine();
         const infraCreator = new NotionCareerInfra(token);
         
-        // Auto-discover profile pages and read profile
-        const discoveredPages = await profileReader.discoverProfilePages();
-        const profile = await profileReader.readUserProfile(discoveredPages);
+        // Create minimal default profile (skip slow discovery for now)
+        const profile = {
+          name: "Career Professional",
+          email: "",
+          headline: "Software Engineer",
+          summary: "Tech professional",
+          skills: ["JavaScript", "TypeScript", "React", "Node.js", "Python"],
+          techStack: ["JavaScript", "TypeScript", "React", "Node.js", "Python"],
+          yearsOfExperience: 3,
+          currentRole: "Software Engineer",
+          currentCompany: "Tech Company",
+          experience: [],
+          education: [],
+          goals: ["Find better opportunities", "Level up skills"],
+          preferences: { remote: true },
+        };
         
         // Find or create the Forensic Career OS page
         const careerPageId = await infraCreator.findOrCreateCareerPage();
@@ -62,48 +75,27 @@ export async function POST(req: Request) {
         // Check if infrastructure already exists
         const exists = await infraCreator.infrastructureExists(careerPageId);
         
+        // Create infrastructure only if needed
+        let infra = {};
         if (!exists) {
-          // Create full infrastructure with user details
           await infraCreator.createInfrastructure(careerPageId, profile);
         }
 
         // Get infrastructure sections
-        const infra = await infraCreator.getFullInfrastructure(careerPageId);
+        infra = await infraCreator.getFullInfrastructure(careerPageId);
 
-        // Generate job recommendations
-        const jobs = await jobEngine.generateRecommendations(profile, 8);
+        // Generate job recommendations (fast operation)
+        const jobs = await jobEngine.generateRecommendations(profile, 5);
         
-        // Add jobs to Notion as pages
-        const createdJobs = [];
-        for (const job of jobs.slice(0, 5)) {
-          if (infra.jobs) {
-            await infraCreator.addJobPage(infra.jobs, {
-              title: job.title,
-              company: job.company,
-              matchScore: job.matchScore,
-              status: "researching",
-              url: job.url,
-            });
-            createdJobs.push(job);
-          }
-        }
+        // Skip adding jobs to Notion for now (too slow)
 
-        // Analyze skill gaps and create recommendations
+        // Analyze skill gaps (fast operation)
         const trendingSkills = await jobEngine.analyzeSkillGaps(profile);
-        
-        for (const skill of trendingSkills.slice(0, 8)) {
-          if (infra.skills) {
-            await infraCreator.addSkillPage(infra.skills, {
-              name: skill.skill,
-              demand: skill.demand,
-            });
-          }
-        }
 
         return NextResponse.json({
           success: true,
           profile,
-          jobs: createdJobs.map((j, i) => ({
+          jobs: jobs.map((j, i) => ({
             ...j,
             id: `job_${i}`,
             status: "researching",
@@ -119,7 +111,7 @@ export async function POST(req: Request) {
           infrastructure: infra,
           stats: {
             skillsFound: profile.skills.length,
-            jobsCreated: createdJobs.length,
+            jobsCreated: 0,
             skillsAnalyzed: trendingSkills.length,
             forensicScans: 0,
           },
