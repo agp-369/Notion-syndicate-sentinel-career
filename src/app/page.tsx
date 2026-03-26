@@ -139,7 +139,7 @@ export function AgentOSContent() {
   const runAutoScan = async () => {
     if (!infraCreated) return;
     setIsScanning(true);
-    addLog("🔬 Watchdog starting automated forensic scan of all jobs...");
+    addLog("🔬 Watchdog starting automated forensic scan...");
     
     try {
       const res = await fetch("/api/watchdog", {
@@ -148,16 +148,19 @@ export function AgentOSContent() {
         body: JSON.stringify({ careerPageId, profile })
       });
       
-      const data = await res.json();
-      if (res.ok) {
-        addLog(`✅ Scan complete. Processed ${data.processedCount} new jobs.`);
-        // Reload data to show new reports
-        await loadExistingData();
-      } else {
-        addLog(`❌ Scan failed: ${data.error}`);
+      if (!res.ok) {
+        const text = await res.text();
+        if (text.includes("An error occurred") || res.status === 504) {
+          throw new Error("Timeout. Processed jobs partially. Click again to continue.");
+        }
+        throw new Error(`Server error ${res.status}`);
       }
-    } catch (e) {
-      addLog(`❌ Scan error: ${e}`);
+
+      const data = await res.json();
+      addLog(`✅ Scan complete. Processed ${data.processedCount} jobs.`);
+      await loadExistingData();
+    } catch (e: any) {
+      addLog(`⚠️ ${e.message}`);
     } finally {
       setIsScanning(false);
     }

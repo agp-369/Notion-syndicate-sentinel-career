@@ -46,7 +46,10 @@ export class SentinelWatchdog {
     console.log(`[WATCHDOG] Found ${jobPages.length} potential jobs to scan.`);
 
     const results = [];
+    let count = 0;
     for (const page of jobPages) {
+      if (count >= 3) break; // Limit to 3 jobs per run to stay under 10s timeout
+
       // Check if already has a report by checking its children
       const blocks = await this.notionFetch(`blocks/${page.id}/children?page_size=10`);
       const hasReport = blocks.results.some((b: any) => b.type === "callout" || b.type === "heading_3");
@@ -54,13 +57,9 @@ export class SentinelWatchdog {
       if (!hasReport) {
         console.log(`[WATCHDOG] Scanning job: ${page.child_page.title}`);
         try {
-          // In a real DB we'd have a URL property, here we might need to extract it from the page title or content
-          // For the demo, we'll use a placeholder or the title if it looks like a URL
           const url = page.child_page.title.includes("http") ? page.child_page.title : "https://linkedin.com/jobs";
-          
           const analysis = await engine.forensicAnalysis(url);
           
-          // Add the research report directly into the job page
           await infra.addResearchPage(page.id, {
             title: "Automated Forensic Report",
             company: "Analyzed by Watchdog",
@@ -70,6 +69,7 @@ export class SentinelWatchdog {
           });
           
           results.push({ id: page.id, status: "analyzed" });
+          count++;
         } catch (e) {
           console.error(`[WATCHDOG] Failed to analyze ${page.id}:`, e);
         }
