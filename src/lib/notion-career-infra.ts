@@ -105,20 +105,40 @@ export class NotionCareerInfra {
     // Add minimal welcome content
     await this.addWelcomeContent(careerPageId, profile);
 
-    // Create Profile page (simple, no blocks)
-    infra.profilePageId = await this.createProfilePage(careerPageId, profile);
+    // Create sub-pages in parallel to save time
+    const [profilePage, jobsPage, skillsPage, roadmapsPage, researchPage] = await Promise.all([
+      this.notion.pages.create({
+        parent: { page_id: careerPageId },
+        icon: { emoji: "👤" },
+        properties: { title: { title: [{ text: { content: "Profile" } }] } },
+      }),
+      this.notion.pages.create({
+        parent: { page_id: careerPageId },
+        icon: { emoji: "💼" },
+        properties: { title: { title: [{ text: { content: "Jobs" } }] } },
+      }),
+      this.notion.pages.create({
+        parent: { page_id: careerPageId },
+        icon: { emoji: "🛠️" },
+        properties: { title: { title: [{ text: { content: "Skills" } }] } },
+      }),
+      this.notion.pages.create({
+        parent: { page_id: careerPageId },
+        icon: { emoji: "🗺️" },
+        properties: { title: { title: [{ text: { content: "Learning Roadmaps" } }] } },
+      }),
+      this.notion.pages.create({
+        parent: { page_id: careerPageId },
+        icon: { emoji: "🔬" },
+        properties: { title: { title: [{ text: { content: "Forensic Research" } }] } },
+      })
+    ]);
 
-    // Create Jobs section page
-    infra.jobsSectionId = await this.createJobsSection(careerPageId);
-
-    // Create Skills section page  
-    infra.skillsSectionId = await this.createSkillsSection(careerPageId, profile);
-
-    // Create Roadmaps section page
-    infra.roadmapsSectionId = await this.createRoadmapsSection(careerPageId);
-
-    // Create Research section page
-    infra.researchSectionId = await this.createResearchSection(careerPageId);
+    infra.profilePageId = profilePage.id;
+    infra.jobsSectionId = jobsPage.id;
+    infra.skillsSectionId = skillsPage.id;
+    infra.roadmapsSectionId = roadmapsPage.id;
+    infra.researchSectionId = researchPage.id;
 
     return infra;
   }

@@ -153,58 +153,41 @@ export async function POST(req: Request) {
       }
 
       const infra = await infraCreator.getFullInfrastructure(careerPageId);
-      const jobs = await jobEngine.generateRecommendations(profile, 8);
-      
-      const createdJobs = [];
-      for (const job of jobs.slice(0, 5)) {
-        if (infra.jobs) {
-          await infraCreator.addJobPage(infra.jobs, {
+      const jobs = await jobEngine.generateRecommendations(profile, 5);
+      const trendingSkills = await jobEngine.analyzeSkillGaps(profile);
+
+      // Create jobs and skills in parallel to avoid timeout
+      const creationPromises = [];
+      if (infra.jobs) {
+        for (const job of jobs) {
+          creationPromises.push(infraCreator.addJobPage(infra.jobs, {
             title: job.title,
             company: job.company,
             matchScore: job.matchScore,
             status: "researching",
             url: job.url,
-          });
-          createdJobs.push(job);
+          }));
         }
       }
 
-      const trendingSkills = await jobEngine.analyzeSkillGaps(profile);
-      
-      for (const skill of trendingSkills.slice(0, 8)) {
-        if (infra.skills) {
-          await infraCreator.addSkillPage(infra.skills, {
+      if (infra.skills) {
+        for (const skill of trendingSkills.slice(0, 5)) {
+          creationPromises.push(infraCreator.addSkillPage(infra.skills, {
             name: skill.skill,
             demand: skill.demand,
-          });
+          }));
         }
       }
 
-      const forensicReports = [];
-      for (const job of createdJobs.slice(0, 3)) {
-        if (job.url) {
-          try {
-            const analysis = await jobEngine.forensicAnalysis(job.url);
-            forensicReports.push({
-              url: job.url,
-              verdict: analysis.verdict,
-              trustScore: analysis.trustScore,
-              redFlags: analysis.redFlags || [],
-              cultureAnalysis: analysis.cultureAnalysis || "",
-              timestamp: new Date().toISOString(),
-              company: job.company,
-              role: job.title,
-            });
-          } catch {
-            // Skip failed analyses
-          }
-        }
-      }
+      await Promise.all(creationPromises);
+
+      // Skip forensic analysis during initial setup to avoid 504
+      const forensicReports: any[] = [];
 
       return NextResponse.json({
         success: true,
         profile,
-        jobs: createdJobs.map((j, i) => ({
+        jobs: jobs.map((j, i) => ({
           ...j,
           id: `job_${i}`,
           status: "researching",
@@ -220,7 +203,7 @@ export async function POST(req: Request) {
         infrastructure: infra,
         stats: {
           skillsFound: profile.skills.length,
-          jobsCreated: createdJobs.length,
+          jobsCreated: jobs.length,
           skillsAnalyzed: trendingSkills.length,
           forensicScans: forensicReports.length,
         },
