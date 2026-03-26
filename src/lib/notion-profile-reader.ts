@@ -189,10 +189,13 @@ export class UserProfileReader {
       currentCompany: "",
     };
 
+    const fullContent: string[] = [];
+
     for (const pageId of pageIds) {
       try {
         const blocks = await this.getPageBlocks(pageId);
         const content = this.extractTextFromBlocks(blocks);
+        fullContent.push(...content);
         const contentStr = content.join(" ").toLowerCase();
         
         // Get page title
@@ -236,7 +239,7 @@ export class UserProfileReader {
       }
     }
 
-    const contentStr = content.join(" ").toLowerCase();
+    const contentStr = fullContent.join(" ").toLowerCase();
     // Calculate years of experience more accurately
     if (profile.experience.length > 0) {
       let totalYears = 0;
