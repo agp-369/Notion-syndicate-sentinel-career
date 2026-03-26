@@ -36,15 +36,39 @@ export class NotionCareerInfra {
       }
     }
 
-    const newPage = await this.notion.pages.create({
-      parent: { type: "workspace", workspace: true } as any,
-      icon: { emoji: "🔍" },
-      properties: {
-        title: { title: [{ text: { content: "🔍 Forensic Career OS" } }] },
-      },
-    });
+    // Try to create at workspace root first
+    try {
+      const newPage = await this.notion.pages.create({
+        parent: { type: "workspace", workspace: true } as any,
+        icon: { emoji: "🔍" },
+        properties: {
+          title: { title: [{ text: { content: "🔍 Forensic Career OS" } }] },
+        },
+      });
+      return newPage.id;
+    } catch (err) {
+      console.log("Failed to create at workspace root, trying shared pages...");
+      
+      // Fallback: Create under the first available shared page
+      const sharedPages = await this.notion.search({
+        filter: { property: "object", value: "page" },
+        page_size: 1,
+      });
 
-    return newPage.id;
+      if (sharedPages.results.length > 0) {
+        const parentId = sharedPages.results[0].id;
+        const newPage = await this.notion.pages.create({
+          parent: { page_id: parentId },
+          icon: { emoji: "🔍" },
+          properties: {
+            title: { title: [{ text: { content: "🔍 Forensic Career OS" } }] },
+          },
+        });
+        return newPage.id;
+      }
+      
+      throw new Error("Could not create Career OS page. Please ensure you have shared at least one page with the integration.");
+    }
   }
 
   async infrastructureExists(careerPageId: string): Promise<boolean> {

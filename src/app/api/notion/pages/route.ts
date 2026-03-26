@@ -28,42 +28,37 @@ export async function GET() {
   try {
     const notion = new Client({ auth: token });
     
-    // Search for all pages
+    // Search for all pages and databases
     const search = await notion.search({
-      filter: { property: "object", value: "page" },
-      page_size: 50,
+      page_size: 100,
       sort: { direction: "descending", timestamp: "last_edited_time" },
     });
 
-    const pages = search.results.map((page: any) => {
-      const title = page.properties?.title?.title?.[0]?.plain_text ||
-                    page.properties?.Name?.title?.[0]?.plain_text ||
-                    "Untitled";
+    const pages = search.results.map((item: any) => {
+      let title = "Untitled";
+      if (item.object === "page") {
+        title = item.properties?.title?.title?.[0]?.plain_text ||
+                item.properties?.Name?.title?.[0]?.plain_text ||
+                "Untitled Page";
+      } else if (item.object === "database") {
+        title = item.title?.[0]?.plain_text || "Untitled Database";
+      }
       
       return {
-        id: page.id,
+        id: item.id,
         title: title,
-        url: page.url,
-        lastEdited: page.last_edited_time,
-        icon: page.icon?.emoji || page.icon?.external?.url || null,
-        parentId: page.parent?.page_id || page.parent?.database_id || null,
-        parentType: page.parent?.type || null,
+        url: item.url,
+        type: item.object,
+        lastEdited: item.last_edited_time,
+        icon: item.icon?.emoji || item.icon?.external?.url || item.icon?.file?.url || null,
+        parentId: item.parent?.page_id || item.parent?.database_id || item.parent?.block_id || null,
+        parentType: item.parent?.type || null,
         hasChildren: false,
       };
     });
 
-    // Check for child pages
-    for (const page of pages) {
-      try {
-        const children = await notion.blocks.children.list({
-          block_id: page.id,
-          page_size: 1,
-        });
-        page.hasChildren = children.results.length > 0;
-      } catch {
-        page.hasChildren = false;
-      }
-    }
+    // Sort to help tree building: parents before children if possible
+    // But buildPageTree handles it anyway.
 
     return NextResponse.json({
       success: true,

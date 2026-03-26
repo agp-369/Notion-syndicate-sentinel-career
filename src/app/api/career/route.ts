@@ -47,25 +47,39 @@ export async function POST(req: Request) {
   try {
     // ── FULL SETUP: Auto-decide mode (no page selection needed) ──────────────
     if (mode === "FULL_SETUP") {
+      const profileReader = new UserProfileReader(token);
       const jobEngine = new JobRecommendationEngine();
       const infraCreator = new NotionCareerInfra(token);
       
-      // Create default profile (skip slow discovery to avoid timeout)
-      const profile = {
-        name: "Career Professional",
-        email: "",
-        headline: "Software Engineer",
-        summary: "Tech professional looking for opportunities",
-        skills: ["JavaScript", "TypeScript", "React", "Node.js", "Python"],
-        techStack: ["JavaScript", "TypeScript", "React", "Node.js", "Python"],
-        yearsOfExperience: 3,
-        currentRole: "Software Engineer",
-        currentCompany: "Tech Company",
-        experience: [],
-        education: [],
-        goals: ["Find better opportunities"],
-        preferences: { remote: true },
-      };
+      // Discover and read real profile instead of hardcoded
+      let profile;
+      try {
+        const discoveredPages = await profileReader.discoverProfilePages();
+        profile = await profileReader.readUserProfile(discoveredPages);
+        
+        // If discovery failed to find anything meaningful, use a better fallback
+        if (!profile.name && !profile.skills.length) {
+          profile = {
+            name: "Career Professional",
+            email: "",
+            headline: "Tech Professional",
+            summary: "Looking for new opportunities in tech.",
+            skills: ["JavaScript", "TypeScript", "React", "Node.js"],
+            techStack: ["JavaScript", "TypeScript", "React", "Node.js"],
+            yearsOfExperience: 5,
+            currentRole: "Software Professional",
+            currentCompany: "Innovation Lab",
+            experience: [],
+            education: [],
+            goals: ["Career growth"],
+            preferences: { remote: true },
+          };
+        }
+      } catch (err) {
+        console.error("Profile discovery failed:", err);
+        // Minimal fallback
+        profile = { name: "Career Professional", skills: ["Software"], techStack: ["Tech"], yearsOfExperience: 0 } as any;
+      }
       
       // Find or create the Forensic Career OS page
       const careerPageId = await infraCreator.findOrCreateCareerPage();
@@ -84,9 +98,6 @@ export async function POST(req: Request) {
       // Generate job recommendations (fast)
       const jobs = await jobEngine.generateRecommendations(profile, 5);
       
-      // Skip forensic analysis during setup (too slow - causes timeout)
-      // Users can run it manually after setup
-
       return NextResponse.json({
         success: true,
         profile,
@@ -101,7 +112,7 @@ export async function POST(req: Request) {
         forensicReports: [],
         infrastructure: infra,
         stats: {
-          skillsFound: profile.skills.length,
+          skillsFound: profile.skills?.length || 0,
           jobsCreated: jobs.length,
           skillsAnalyzed: 0,
           forensicScans: 0,

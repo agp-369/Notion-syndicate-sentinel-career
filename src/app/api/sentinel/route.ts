@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { NotionMCPClient, runForensicAudit, type MCPTransaction } from "@/lib/notion-mcp";
+import { NotionCareerInfra } from "@/lib/notion-career-infra";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -130,12 +131,27 @@ export async function POST(req: NextRequest) {
 
 /**
  * GET /api/sentinel
- * Check if Notion is connected
+ * Check if Notion is connected and if infra exists
  */
 export async function GET() {
   const token = await getTokenFromCookie();
-  return NextResponse.json({
-    connected: !!token,
-    hasToken: !!token,
-  });
+  
+  if (!token) {
+    return NextResponse.json({ connected: false, infraCreated: false });
+  }
+
+  try {
+    const infraCreator = new NotionCareerInfra(token);
+    const careerPageId = await infraCreator.findOrCreateCareerPage();
+    const infraCreated = await infraCreator.infrastructureExists(careerPageId);
+    
+    return NextResponse.json({
+      connected: true,
+      infraCreated,
+      careerPageId,
+      setupComplete: infraCreated
+    });
+  } catch (err) {
+    return NextResponse.json({ connected: true, infraCreated: false });
+  }
 }

@@ -191,23 +191,33 @@ export function AgentOSContent() {
     const pageMap = new Map<string, NotionPage>();
     const rootPages: NotionPage[] = [];
 
+    // First pass: create all page objects
     pages.forEach(page => {
       pageMap.set(page.id, { ...page, children: [], expanded: false });
     });
 
+    // Second pass: connect children to parents
     pages.forEach(page => {
       const currentPage = pageMap.get(page.id)!;
       if (page.parentId && pageMap.has(page.parentId)) {
         pageMap.get(page.parentId)!.children!.push(currentPage);
       } else {
+        // If parent is not in our list, it's a "root" in our view
         rootPages.push(currentPage);
       }
     });
 
+    // Sorting: Favorites/Workspaces first, then alphabetical
     const sortPages = (pages: NotionPage[]) => {
-      pages.sort((a, b) => a.title.localeCompare(b.title));
+      pages.sort((a, b) => {
+        // Databases before pages
+        if (a.type === "database" && b.type !== "database") return -1;
+        if (a.type !== "database" && b.type === "database") return 1;
+        return a.title.localeCompare(b.title);
+      });
       pages.forEach(p => p.children && sortPages(p.children));
     };
+
     sortPages(rootPages);
     return rootPages;
   };
@@ -629,76 +639,76 @@ export function AgentOSContent() {
       const isSelected = isPageSelected(page.id);
       const isExpanded = expandedPages.has(page.id);
       const childCount = page.children?.length || 0;
+      const isDatabase = page.type === "database";
       
       return [
         <div key={page.id} className="select-none">
           <div
-            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg transition-all duration-150 group ${
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 group border ${
               isSelected 
-                ? "bg-indigo-500/20 border border-indigo-500/40" 
-                : "hover:bg-slate-700/50 border border-transparent"
+                ? "bg-indigo-500/10 border-indigo-500/40 shadow-[0_0_15px_rgba(99,102,241,0.1)]" 
+                : "hover:bg-slate-800/40 border-transparent"
             }`}
-            style={{ paddingLeft: `${12 + depth * 24}px` }}
+            style={{ marginLeft: `${depth * 20}px`, width: `calc(100% - ${depth * 20}px)` }}
           >
             {/* Expand/Collapse Button */}
-            {hasChildren ? (
-              <button
-                onClick={(e) => { e.stopPropagation(); toggleExpand(page.id); }}
-                className="p-1 hover:bg-slate-600 rounded cursor-pointer flex-shrink-0"
-              >
-                {isExpanded ? (
-                  <ChevronRight size={16} className="text-cyan-400" />
-                ) : (
-                  <ChevronRight size={16} className="text-slate-500" />
-                )}
-              </button>
-            ) : (
-              <div className="w-6 flex-shrink-0" />
-            )}
+            <div className="w-6 flex items-center justify-center">
+              {hasChildren ? (
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleExpand(page.id); }}
+                  className={`p-1 hover:bg-slate-700 rounded transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
+                >
+                  <ChevronRight size={14} className={isExpanded ? "text-cyan-400" : "text-slate-500"} />
+                </button>
+              ) : null}
+            </div>
             
             {/* Selection Checkbox */}
             <button
               onClick={(e) => { e.stopPropagation(); togglePageSelection(page, !isSelected); }}
-              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all flex-shrink-0 cursor-pointer ${
+              className={`w-4 h-4 rounded border flex items-center justify-center transition-all flex-shrink-0 cursor-pointer ${
                 isSelected 
                   ? "border-indigo-500 bg-indigo-500" 
-                  : "border-slate-500 hover:border-slate-400"
+                  : "border-slate-600 hover:border-slate-400"
               }`}
             >
-              {isSelected && <CheckCircle2 size={12} className="text-white" />}
+              {isSelected && <Check size={10} className="text-white font-bold" />}
             </button>
             
             {/* Page Icon */}
-            {page.icon ? (
-              <span className="text-base flex-shrink-0">{page.icon}</span>
-            ) : hasChildren ? (
-              <FolderOpen size={16} className="text-amber-400 flex-shrink-0" />
-            ) : (
-              <FileText size={16} className="text-slate-500 flex-shrink-0" />
-            )}
+            <div className="w-6 flex items-center justify-center flex-shrink-0">
+              {page.icon ? (
+                <span className="text-sm">{page.icon}</span>
+              ) : isDatabase ? (
+                <BarChart3 size={14} className="text-purple-400" />
+              ) : hasChildren ? (
+                <FolderOpen size={14} className="text-amber-400" />
+              ) : (
+                <FileText size={14} className="text-slate-500" />
+              )}
+            </div>
             
-            {/* Page Title */}
-            <span className={`text-sm flex-1 truncate ${isSelected ? "text-white font-medium" : "text-slate-300"}`}>
-              {page.title || "Untitled"}
-            </span>
-            
-            {/* Child Count Badge */}
-            {hasChildren && (
-              <span className={`text-[10px] px-2 py-0.5 rounded flex-shrink-0 ${
-                isExpanded 
-                  ? "bg-cyan-500/20 text-cyan-400" 
-                  : "bg-slate-700 text-slate-500"
-              }`}>
-                {childCount} {childCount === 1 ? "child" : "children"}
+            {/* Page Title & Info */}
+            <div className="flex flex-1 items-center gap-2 min-w-0">
+              <span className={`text-sm truncate ${isSelected ? "text-white font-semibold" : "text-slate-300"}`}>
+                {page.title || "Untitled"}
               </span>
-            )}
+              
+              {isDatabase && (
+                <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/30 uppercase font-bold tracking-wider">
+                  DB
+                </span>
+              )}
+            </div>
             
-            {/* Parent Indicator */}
-            {depth === 0 && hasChildren && (
-              <span className="text-[9px] text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded uppercase flex-shrink-0">
-                Parent
-              </span>
-            )}
+            {/* Badges */}
+            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              {childCount > 0 && (
+                <span className="text-[10px] text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded">
+                  {childCount}
+                </span>
+              )}
+            </div>
           </div>
         </div>,
         ...(isExpanded && page.children ? renderPageTree(page.children, depth + 1) : [])
