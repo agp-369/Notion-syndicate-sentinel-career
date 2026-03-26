@@ -81,6 +81,29 @@ export class NotionCareerInfra {
     }
   }
 
+  async infrastructureExists(careerPageId: string): Promise<boolean> {
+    try {
+      const children = await this.notion.blocks.children.list({
+        block_id: careerPageId,
+        page_size: 50,
+      });
+
+      let hasJobs = false;
+      let hasSkills = false;
+
+      for (const block of children.results as any[]) {
+        if (block.type === "child_page") {
+          const title = block.child_page?.title || "";
+          if (title.includes("Jobs")) hasJobs = true;
+          if (title.includes("Skills")) hasSkills = true;
+        }
+      }
+      return hasJobs && hasSkills;
+    } catch {
+      return false;
+    }
+  }
+
   async createInfrastructure(careerPageId: string, profile: UserProfile): Promise<CareerInfrastructure> {
     // 1. Get existing sections to avoid duplicates
     const existing = await this.getFullInfrastructure(careerPageId);
