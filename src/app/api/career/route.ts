@@ -1,11 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { UserProfileReader } from "@/lib/notion-profile-reader";
 import { NotionCareerInfra } from "@/lib/notion-career-infra";
 import { JobRecommendationEngine } from "@/lib/job-engine";
 
+export const maxDuration = 60; // Max allowed for Vercel Hobby is 10s, Pro is 300s. We set 60 as a safe mid-point if on Pro.
+export const dynamic = "force-dynamic";
+
 const COOKIE_NAME = "notion_token";
-const PAGES_COOKIE_NAME = "notion_selected_pages";
+const SELECTED_PAGES_COOKIE = "notion_selected_pages";
 
 async function getTokenFromCookie(): Promise<string | null> {
   const cookieStore = await cookies();
@@ -14,50 +17,45 @@ async function getTokenFromCookie(): Promise<string | null> {
 
 async function getSelectedPagesFromCookie(): Promise<string[]> {
   const cookieStore = await cookies();
-  const pagesCookie = cookieStore.get(PAGES_COOKIE_NAME)?.value;
-  if (pagesCookie) {
-    try {
-      return JSON.parse(pagesCookie);
-    } catch {
-      return [];
-    }
+  const cookie = cookieStore.get(SELECTED_PAGES_COOKIE)?.value;
+  if (!cookie) return [];
+  try {
+    return JSON.parse(cookie);
+  } catch {
+    return [];
   }
-  return [];
 }
 
-export const dynamic = "force-dynamic";
-export const maxDuration = 60;
-
 /**
- * POST /api/career/setup
- * Creates complete Career OS infrastructure in user's Notion workspace
+ * POST /api/career
+ * Central controller for Career OS operations.
+ * Modes:
+ * FULL_SETUP — Auto-discovers pages, creates infra, populates everything.
+ * SETUP      — Manual selection mode.
+ * SYNC       — Refresh data from Notion.
  */
-export async function POST(req: Request) {
-  const body = await req.json();
-  const { mode } = body;
-
+export async function POST(req: NextRequest) {
   const token = await getTokenFromCookie();
   if (!token) {
-    return NextResponse.json(
-      { success: false, error: "Notion not connected" },
-      { status: 401 }
-    );
+    return NextResponse.json({ success: false, error: "Notion not connected" }, { status: 401 });
   }
 
   try {
-    // ── FULL SETUP: Auto-decide mode (no page selection needed) ──────────────
+    const body = await req.json();
+    const { mode } = body;
+
+    // ── AUTOMATED FULL SETUP ──────────────────────────────────────────────────
     if (mode === "FULL_SETUP") {
       const profileReader = new UserProfileReader(token);
       const jobEngine = new JobRecommendationEngine();
       const infraCreator = new NotionCareerInfra(token);
       
-      // Discover and read real profile instead of hardcoded
+      console.log("[FULL_SETUP] Starting automated discovery...");
       let profile;
       try {
         const discoveredPages = await profileReader.discoverProfilePages();
         profile = await profileReader.readUserProfile(discoveredPages);
         
-        // If discovery failed to find anything meaningful, use a better fallback
         if (!profile.name && !profile.skills.length) {
           profile = {
             name: "Career Professional",
@@ -77,25 +75,15 @@ export async function POST(req: Request) {
         }
       } catch (err) {
         console.error("Profile discovery failed:", err);
-        // Minimal fallback
         profile = { name: "Career Professional", skills: ["Software"], techStack: ["Tech"], yearsOfExperience: 0 } as any;
       }
       
-      // Find or create the Forensic Career OS page
       const careerPageId = await infraCreator.findOrCreateCareerPage();
+      const infra = await infraCreator.createInfrastructure(careerPageId, profile);
       
-      // Check if infrastructure already exists
-      const exists = await infraCreator.infrastructureExists(careerPageId);
-      
-      // Only create infrastructure if it doesn't exist
-      let infra = {};
-      if (!exists) {
-        infra = await infraCreator.createInfrastructure(careerPageId, profile);
-      } else {
-        infra = await infraCreator.getFullInfrastructure(careerPageId);
-      }
+      // Populate sub-pages (fire and forget)
+      infraCreator.populateSubPages(infra, profile).catch(e => console.error("Population failed", e));
 
-      // Generate job recommendations (fast)
       const jobs = await jobEngine.generateRecommendations(profile, 5);
       
       return NextResponse.json({
@@ -118,7 +106,7 @@ export async function POST(req: Request) {
           forensicScans: 0,
         },
         setupComplete: true,
-        message: "Forensic Career OS created! Run forensic scans separately.",
+        message: "Forensic Career OS created! Your profile data is being synced to Notion.",
       });
     }
 
@@ -129,29 +117,31 @@ export async function POST(req: Request) {
       const jobEngine = new JobRecommendationEngine();
       const infraCreator = new NotionCareerInfra(token);
       
-      console.log("[SETUP] Starting Skeleton-First setup...");
+      console.log("[SETUP] Starting Manual setup...");
       
       const selectedPages = manualPages || await getSelectedPagesFromCookie();
       if (selectedPages.length === 0) {
         return NextResponse.json({ success: false, error: "Please select at least one page" }, { status: 400 });
       }
       
-      // 1. Read profile (Essential)
+      // 1. Read profile (Thorough extraction)
+      console.log("[SETUP] Reading profile from pages:", selectedPages);
       const profile = await profileReader.readFromSelectedPages(selectedPages);
+      console.log("[SETUP] Profile read successfully. Skills found:", profile.skills.length, "Years:", profile.yearsOfExperience);
       
-      // 2. Create Skeleton Infrastructure (Parallelized & Idempotent)
+      // 2. Create Skeleton Infrastructure
       const careerPageId = await infraCreator.findOrCreateCareerPage();
       const infra = await infraCreator.createInfrastructure(careerPageId, profile);
       
-      console.log("[SETUP] Skeleton created successfully.");
+      console.log("[SETUP] Infrastructure created successfully.");
 
-      // 3. Quick Data Generation (Keep it light to avoid 504)
+      // 3. Deep Populate Sub-pages (Fire and forget)
+      infraCreator.populateSubPages(infra, profile).catch(e => console.error("Population failed", e));
+
+      // 4. Quick Data Generation
       const jobs = await jobEngine.generateRecommendations(profile, 3);
       const trendingSkills = await jobEngine.analyzeSkillGaps(profile);
 
-      // 4. Fire-and-forget background population (Optional - but let's do minimal in-request)
-      // For Hobby plan, we just return now and let the user 'refresh' to see more data
-      // OR do a very small set of parallel writes
       if (infra.jobsSectionId && jobs.length > 0) {
         await Promise.all(jobs.map(j => infraCreator.addJobPage(infra.jobsSectionId, {
           ...j,
@@ -180,7 +170,7 @@ export async function POST(req: Request) {
           forensicScans: 0,
         },
         setupComplete: true,
-        message: "Forensic Career OS Skeleton Ready! Deep analysis will populate in the background.",
+        message: "Forensic Career OS Ready! Check your Notion for the detailed profile and skills.",
       });
     }
 
@@ -214,165 +204,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: "Infrastructure deleted" });
     }
 
-    // ── READ PROFILE ──────────────────────────────────────────────────────────
-    if (mode === "READ_PROFILE") {
-      const { pageIds } = body;
-
-      const profileReader = new UserProfileReader(token);
-      
-      // Use selected pages from cookie or provided pageIds
-      const selectedPages = pageIds || await getSelectedPagesFromCookie();
-      
-      if (selectedPages && selectedPages.length > 0) {
-        const profile = await profileReader.readFromSelectedPages(selectedPages);
-        return NextResponse.json({ success: true, profile });
-      }
-
-      // Fallback to auto-discover
-      const discoveredPages = await profileReader.discoverProfilePages();
-      const profile = await profileReader.readUserProfile(discoveredPages);
-
-      return NextResponse.json({
-        success: true,
-        profile,
-        discoveredPages,
-      });
-    }
-
-    // ── GENERATE JOB RECOMMENDATIONS ───────────────────────────────────────────
-    if (mode === "GENERATE_JOBS") {
-      const { count = 10 } = body;
-
-      const profileReader = new UserProfileReader(token);
-      const selectedPages = await getSelectedPagesFromCookie();
-      const profile = selectedPages.length > 0 
-        ? await profileReader.readFromSelectedPages(selectedPages)
-        : await profileReader.readUserProfile(await profileReader.discoverProfilePages());
-
-      const jobEngine = new JobRecommendationEngine();
-      const jobs = await jobEngine.generateRecommendations(profile, count);
-
-      return NextResponse.json({
-        success: true,
-        jobs,
-        profileMatch: {
-          skillsCount: profile.skills.length,
-          yearsExperience: profile.yearsOfExperience,
-          currentRole: profile.currentRole,
-        },
-      });
-    }
-
-    // ── ANALYZE SKILL GAPS ────────────────────────────────────────────────────
-    if (mode === "ANALYZE_SKILLS") {
-      const profileReader = new UserProfileReader(token);
-      const selectedPages = await getSelectedPagesFromCookie();
-      const profile = selectedPages.length > 0 
-        ? await profileReader.readFromSelectedPages(selectedPages)
-        : await profileReader.readUserProfile(await profileReader.discoverProfilePages());
-
-      const jobEngine = new JobRecommendationEngine();
-      const gaps = await jobEngine.analyzeSkillGaps(profile);
-
-      return NextResponse.json({
-        success: true,
-        gaps,
-        userSkills: profile.skills,
-        techStack: profile.techStack,
-      });
-    }
-
-    // ── GENERATE LEARNING ROADMAP ─────────────────────────────────────────────
-    if (mode === "GENERATE_ROADMAP") {
-      const { targetSkill } = body;
-
-      if (!targetSkill) {
-        return NextResponse.json({
-          success: false,
-          error: "targetSkill required",
-        }, { status: 400 });
-      }
-
-      const profileReader = new UserProfileReader(token);
-      const selectedPages = await getSelectedPagesFromCookie();
-      const profile = selectedPages.length > 0 
-        ? await profileReader.readFromSelectedPages(selectedPages)
-        : await profileReader.readUserProfile(await profileReader.discoverProfilePages());
-
-      const jobEngine = new JobRecommendationEngine();
-      const roadmap = await jobEngine.generateLearningRoadmap(profile, targetSkill);
-
-      return NextResponse.json({
-        success: true,
-        roadmap,
-        targetSkill,
-      });
-    }
-
-    // ── GENERATE EMAIL PITCH (HITL) ───────────────────────────────────────────
-    if (mode === "GENERATE_EMAIL") {
-      const { targetCompany, targetRole, emailType = "cold" } = body;
-
-      if (!targetCompany || !targetRole) {
-        return NextResponse.json({
-          success: false,
-          error: "targetCompany and targetRole required",
-        }, { status: 400 });
-      }
-
-      const profileReader = new UserProfileReader(token);
-      const selectedPages = await getSelectedPagesFromCookie();
-      const profile = selectedPages.length > 0 
-        ? await profileReader.readFromSelectedPages(selectedPages)
-        : await profileReader.readUserProfile(await profileReader.discoverProfilePages());
-
-      const jobEngine = new JobRecommendationEngine();
-      const email = await jobEngine.generateEmailPitch(
-        profile,
-        targetCompany,
-        targetRole,
-        emailType
-      );
-
-      return NextResponse.json({
-        success: true,
-        email,
-        status: "DRAFT",
-        hitlNote: "Review and approve this email before sending",
-      });
-    }
-
-    // ── FORENSIC JOB ANALYSIS ──────────────────────────────────────────────────
-    if (mode === "FORENSIC_ANALYSIS") {
-      const { url } = body;
-
-      if (!url) {
-        return NextResponse.json({
-          success: false,
-          error: "url required for forensic analysis",
-        }, { status: 400 });
-      }
-
-      const jobEngine = new JobRecommendationEngine();
-      const analysis = await jobEngine.forensicAnalysis(url);
-
-      return NextResponse.json({
-        success: true,
-        analysis,
-        url,
-      });
-    }
-
-    return NextResponse.json({
-      success: false,
-      error: `Unknown mode: ${mode}`,
-    }, { status: 400 });
+    // ── OTHER MODES (Fallbacks) ──────────────────────────────────────────────
+    return NextResponse.json({ success: false, error: `Unknown mode: ${mode}` }, { status: 400 });
 
   } catch (err: any) {
-    console.error("[CAREER_API]", err);
+    console.error("[CAREER_API] Critical Error:", err);
     return NextResponse.json({
       success: false,
-      error: err.message,
+      error: err.message || "An internal error occurred",
     }, { status: 500 });
   }
 }

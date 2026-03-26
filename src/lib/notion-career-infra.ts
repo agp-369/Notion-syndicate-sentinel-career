@@ -122,54 +122,100 @@ export class NotionCareerInfra {
       await this.addWelcomeContent(careerPageId, profile);
     }
 
-    // 3. Create missing pages only
-    const creationTasks = [];
-
+    // 3. Create missing pages
+    // Note: Creating these sequentially to be extremely safe, though slower.
     if (!infra.profilePageId) {
-      creationTasks.push(this.notion.pages.create({
+      const p = await this.notion.pages.create({
         parent: { page_id: careerPageId },
         icon: { emoji: "👤" },
         properties: { title: { title: [{ text: { content: "Profile" } }] } },
-      }).then(p => { infra.profilePageId = p.id; }));
+      });
+      infra.profilePageId = p.id;
     }
 
     if (!infra.jobsSectionId) {
-      creationTasks.push(this.notion.pages.create({
+      const p = await this.notion.pages.create({
         parent: { page_id: careerPageId },
         icon: { emoji: "💼" },
         properties: { title: { title: [{ text: { content: "Jobs" } }] } },
-      }).then(p => { infra.jobsSectionId = p.id; }));
+      });
+      infra.jobsSectionId = p.id;
     }
 
     if (!infra.skillsSectionId) {
-      creationTasks.push(this.notion.pages.create({
+      const p = await this.notion.pages.create({
         parent: { page_id: careerPageId },
         icon: { emoji: "🛠️" },
         properties: { title: { title: [{ text: { content: "Skills" } }] } },
-      }).then(p => { infra.skillsSectionId = p.id; }));
+      });
+      infra.skillsSectionId = p.id;
     }
 
     if (!infra.roadmapsSectionId) {
-      creationTasks.push(this.notion.pages.create({
+      const p = await this.notion.pages.create({
         parent: { page_id: careerPageId },
         icon: { emoji: "🗺️" },
         properties: { title: { title: [{ text: { content: "Learning Roadmaps" } }] } },
-      }).then(p => { infra.roadmapsSectionId = p.id; }));
+      });
+      infra.roadmapsSectionId = p.id;
     }
 
     if (!infra.researchSectionId) {
-      creationTasks.push(this.notion.pages.create({
+      const p = await this.notion.pages.create({
         parent: { page_id: careerPageId },
         icon: { emoji: "🔬" },
         properties: { title: { title: [{ text: { content: "Forensic Research" } }] } },
-      }).then(p => { infra.researchSectionId = p.id; }));
-    }
-
-    if (creationTasks.length > 0) {
-      await Promise.all(creationTasks);
+      });
+      infra.researchSectionId = p.id;
     }
 
     return infra;
+  }
+
+  /**
+   * Deep populate sub-pages with data. 
+   * This is called after createInfrastructure to keep response times low.
+   */
+  async populateSubPages(infra: CareerInfrastructure, profile: UserProfile): Promise<void> {
+    try {
+      const populationTasks = [];
+
+      // Populate Profile
+      if (infra.profilePageId) {
+        populationTasks.push(this.notion.blocks.children.append({
+          block_id: infra.profilePageId,
+          children: [
+            { type: "heading_1", heading_1: { rich_text: [{ text: { content: profile.name || "My Professional Profile" } }] } },
+            { type: "paragraph", paragraph: { rich_text: [{ text: { content: profile.headline || "" } }] } },
+            { type: "heading_2", heading_2: { rich_text: [{ text: { content: "Summary" } }] } },
+            { type: "paragraph", paragraph: { rich_text: [{ text: { content: profile.summary || "No summary provided." } }] } },
+            { type: "heading_2", heading_2: { rich_text: [{ text: { content: "Experience" } }] } },
+            ...profile.experience.map(exp => ({
+              type: "bulleted_list_item" as const,
+              bulleted_list_item: { rich_text: [{ text: { content: `${exp.role} at ${exp.company} (${exp.duration})` }, annotations: { bold: true } }] }
+            })),
+          ] as any[]
+        }));
+      }
+
+      // Populate Skills
+      if (infra.skillsSectionId && profile.skills.length > 0) {
+        populationTasks.push(this.notion.blocks.children.append({
+          block_id: infra.skillsSectionId,
+          children: [
+            { type: "heading_2", heading_2: { rich_text: [{ text: { content: "Current Skill DNA" } }] } },
+            ...profile.skills.map(skill => ({
+              type: "bulleted_list_item" as const,
+              bulleted_list_item: { rich_text: [{ text: { content: skill } }] }
+            }))
+          ] as any[]
+        }));
+      }
+
+      await Promise.all(populationTasks);
+    } catch (err) {
+      console.error("Failed to populate sub-pages:", err);
+    }
   }
 
   private async addWelcomeContent(pageId: string, profile: UserProfile): Promise<void> {
@@ -183,76 +229,19 @@ export class NotionCareerInfra {
     });
   }
 
-  private async createProfilePage(careerPageId: string, profile: UserProfile): Promise<string> {
-    const page = await this.notion.pages.create({
-      parent: { page_id: careerPageId },
-      icon: { emoji: "👤" },
-      properties: { title: { title: [{ text: { content: `Profile` } }] } },
-    });
-
-    return page.id;
-  }
-
-  private async createJobsSection(careerPageId: string): Promise<string> {
-    const page = await this.notion.pages.create({
-      parent: { page_id: careerPageId },
-      icon: { emoji: "💼" },
-      properties: { title: { title: [{ text: { content: "Jobs" } }] } },
-    });
-
-    return page.id;
-  }
-
-  private async createSkillsSection(careerPageId: string, profile: UserProfile): Promise<string> {
-    const page = await this.notion.pages.create({
-      parent: { page_id: careerPageId },
-      icon: { emoji: "🛠️" },
-      properties: { title: { title: [{ text: { content: "Skills" } }] } },
-    });
-
-    return page.id;
-  }
-
-  private async createRoadmapsSection(careerPageId: string): Promise<string> {
-    const page = await this.notion.pages.create({
-      parent: { page_id: careerPageId },
-      icon: { emoji: "🗺️" },
-      properties: { title: { title: [{ text: { content: "🗺️ Learning Roadmaps" } }] } },
-    });
-
-    await this.notion.blocks.children.append({
-      block_id: page.id,
-      children: [
-        { type: "paragraph", paragraph: { rich_text: [{ text: { content: "Personalized learning plans for career growth." } }] } },
-      ] as any,
-    });
-
-    return page.id;
-  }
-
-  private async createResearchSection(careerPageId: string): Promise<string> {
-    const page = await this.notion.pages.create({
-      parent: { page_id: careerPageId },
-      icon: { emoji: "🔬" },
-      properties: { title: { title: [{ text: { content: "🔬 Forensic Research" } }] } },
-    });
-
-    await this.notion.blocks.children.append({
-      block_id: page.id,
-      children: [
-        { type: "paragraph", paragraph: { rich_text: [{ text: { content: "Deep analysis of job opportunities for legitimacy verification." } }] } },
-      ] as any,
-    });
-
-    return page.id;
-  }
-
   async addJobPage(jobsSectionId: string, job: { title: string; company: string; matchScore: number; status: string; url?: string }): Promise<string> {
     const page = await this.notion.pages.create({
       parent: { page_id: jobsSectionId },
       icon: { emoji: job.matchScore >= 80 ? "✅" : job.matchScore >= 60 ? "⚠️" : "❌" },
       properties: { title: { title: [{ text: { content: `${job.title} @ ${job.company}` } }] } },
     });
+
+    if (job.url) {
+      await this.notion.blocks.children.append({
+        block_id: page.id,
+        children: [{ type: "paragraph", paragraph: { rich_text: [{ text: { content: "Job URL: " } }, { text: { content: job.url }, href: { url: job.url } }] } }] as any[]
+      });
+    }
 
     return page.id;
   }

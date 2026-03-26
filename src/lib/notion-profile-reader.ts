@@ -199,15 +199,35 @@ export class UserProfileReader {
         const contentStr = content.join(" ").toLowerCase();
         
         // Get page title
-        const pageTitle = blocks[0]?.id ? await this.getPageTitle(pageId) : "";
+        const pageTitle = await this.getPageTitle(pageId);
         const titleLower = pageTitle.toLowerCase();
 
-        // Detect page type and extract data
+        // Holistic extraction for EVERY page
+        // 1. Extract Skills from content anyway
+        const extractedSkills = this.extractSkillsFromText(contentStr);
+        if (extractedSkills.length > 0) {
+          profile.skills = [...new Set([...profile.skills, ...extractedSkills])];
+          profile.techStack = [...new Set([...profile.techStack, ...extractedSkills])];
+        }
+
+        // 2. Extract Goals from content anyway
+        const extractedGoals = this.extractGoalsFromText(contentStr);
+        if (extractedGoals.length > 0) {
+          profile.goals = [...new Set([...profile.goals, ...extractedGoals])];
+        }
+
+        // 3. Page-type specific deep extraction
         if (titleLower.includes("resume") || 
             titleLower.includes("experience") ||
             contentStr.includes("work history") ||
             contentStr.includes("professional experience")) {
-          const resumeData = await this.readResumePage(pageId);
+          
+          const resumeData = {
+            headline: this.extractHeadline(content),
+            summary: this.extractSummary(content),
+            experience: this.extractExperience(content),
+            education: this.extractEducation(content),
+          };
           Object.assign(profile, resumeData);
         }
         
@@ -215,32 +235,22 @@ export class UserProfileReader {
             titleLower.includes("personal") || 
             titleLower.includes("contact") ||
             titleLower.includes("profile")) {
-          const personalData = await this.readPersonalPage(pageId);
+          
+          const personalData = {
+            name: this.extractName(content),
+            email: this.extractEmail(content),
+            preferences: this.extractPreferences(content),
+          };
           Object.assign(profile, personalData);
-        }
-        
-        if (titleLower.includes("skill") || 
-            titleLower.includes("technology") ||
-            contentStr.includes("tech stack") ||
-            contentStr.includes("proficient in")) {
-          const skills = await this.readSkillsPage(pageId);
-          profile.skills = [...new Set([...profile.skills, ...skills])];
-          profile.techStack = skills;
-        }
-        
-        if (titleLower.includes("goal") || 
-            titleLower.includes("objective") ||
-            titleLower.includes("aspiration")) {
-          const goals = await this.readGoalsPage(pageId);
-          profile.goals = [...new Set([...profile.goals, ...goals])];
         }
       } catch (error) {
         console.error(`Error reading page ${pageId}:`, error);
       }
     }
 
-    const contentStr = fullContent.join(" ").toLowerCase();
-    // Calculate years of experience more accurately
+    const fullContentStr = fullContent.join(" ").toLowerCase();
+    
+    // Final polish on years and current role
     if (profile.experience.length > 0) {
       let totalYears = 0;
       profile.experience.forEach(exp => {
@@ -257,16 +267,20 @@ export class UserProfileReader {
           totalYears += (end - start);
         }
       });
-      profile.yearsOfExperience = totalYears || 5; // Default to 5 for professional demo if experience exists
-    } else if (contentStr.includes("8 years") || contentStr.includes("5 years") || contentStr.includes("senior") || contentStr.includes("lead")) {
-      profile.yearsOfExperience = 8;
-    }
-
-    // Set current role and company
-    if (profile.experience.length > 0) {
+      profile.yearsOfExperience = totalYears || 5; 
       profile.currentRole = profile.experience[0].role;
       profile.currentCompany = profile.experience[0].company;
-    } else if (profile.headline) {
+    } else {
+      // Fallback years extraction from full text
+      const yearsMatch = fullContentStr.match(/(\d+)\+?\s*years?\s*(?:of)?\s*experience/i);
+      if (yearsMatch) {
+        profile.yearsOfExperience = parseInt(yearsMatch[1]);
+      } else if (fullContentStr.includes("senior") || fullContentStr.includes("lead")) {
+        profile.yearsOfExperience = 8;
+      }
+    }
+
+    if (!profile.currentRole && profile.headline) {
       profile.currentRole = profile.headline;
     }
 
@@ -310,9 +324,10 @@ export class UserProfileReader {
   private async readSkillsPage(pageId: string): Promise<string[]> {
     const blocks = await this.getPageBlocks(pageId);
     const content = this.extractTextFromBlocks(blocks);
-    const contentStr = content.join(" ");
-    
-    // Extract skills - look for common patterns
+    return this.extractSkillsFromText(content.join(" "));
+  }
+
+  private extractSkillsFromText(text: string): string[] {
     const skills: string[] = [];
     const techKeywords = [
       "javascript", "typescript", "python", "java", "react", "node", "next",
@@ -321,39 +336,42 @@ export class UserProfileReader {
       "kotlin", "flutter", "rust", "golang", "terraform", "ci/cd"
     ];
     
-    const contentLower = contentStr.toLowerCase();
+    const contentLower = text.toLowerCase();
     for (const skill of techKeywords) {
       if (contentLower.includes(skill)) {
         skills.push(skill);
       }
     }
 
-    // Also extract skills from bullet points
-    const bulletPattern = /[-•*]\s*(.+)/g;
+    // Bullet points for more specific skills
+    const bulletPattern = /[-•*]\s*([A-Za-z0-9+#. ]+)/g;
     let match;
-    while ((match = bulletPattern.exec(contentStr)) !== null) {
+    while ((match = bulletPattern.exec(text)) !== null) {
       const skill = match[1].trim();
-      if (skill.length < 30 && !skills.includes(skill)) {
+      if (skill.length > 2 && skill.length < 30 && !skills.includes(skill)) {
         skills.push(skill);
       }
     }
 
-    return skills;
+    return [...new Set(skills)];
   }
 
   private async readGoalsPage(pageId: string): Promise<string[]> {
     const blocks = await this.getPageBlocks(pageId);
     const content = this.extractTextFromBlocks(blocks);
-    const contentStr = content.join(" ");
-    
-    // Extract goals from bullet points
+    return this.extractGoalsFromText(content.join(" "));
+  }
+
+  private extractGoalsFromText(text: string): string[] {
     const goals: string[] = [];
     const bulletPattern = /[-•*]\s*(.+)/g;
     let match;
-    while ((match = bulletPattern.exec(contentStr)) !== null) {
-      goals.push(match[1].trim());
+    while ((match = bulletPattern.exec(text)) !== null) {
+      const goal = match[1].trim();
+      if (goal.length > 10 && goal.length < 100) {
+        goals.push(goal);
+      }
     }
-
     return goals;
   }
 
@@ -370,22 +388,15 @@ export class UserProfileReader {
     }
   }
 
-  private async getPageContent(pageId: string): Promise<string[]> {
-    const blocks = await this.getPageBlocks(pageId);
-    return this.extractTextFromBlocks(blocks);
-  }
-
   private extractTextFromBlocks(blocks: any[]): string[] {
     const texts: string[] = [];
     
     for (const block of blocks) {
-      const blockType = Object.keys(block).find(key => 
-        key !== "object" && key !== "id" && key !== "type" && key !== "created_time" && 
-        key !== "last_edited_time" && key !== "has_children"
-      );
+      const blockType = block.type;
+      const blockData = block[blockType];
       
-      if (blockType && block[blockType]?.rich_text) {
-        const text = block[blockType].rich_text
+      if (blockData?.rich_text) {
+        const text = blockData.rich_text
           .map((rt: any) => rt.plain_text)
           .join("");
         if (text.trim()) {
@@ -398,7 +409,6 @@ export class UserProfileReader {
   }
 
   private extractName(content: string[]): string {
-    // Usually the first heading or bold text
     const firstLine = content[0] || "";
     return firstLine.replace(/[#*_]/g, "").trim();
   }
@@ -413,10 +423,9 @@ export class UserProfileReader {
   }
 
   private extractHeadline(content: string[]): string {
-    // Look for headline patterns
     for (const line of content) {
       if (line.includes("engineer") || line.includes("developer") || 
-          line.includes("manager") || line.includes("designer")) {
+          line.includes("manager") || line.includes("designer") || line.includes("architect")) {
         return line.replace(/[#*_]/g, "").trim();
       }
     }
@@ -424,9 +433,8 @@ export class UserProfileReader {
   }
 
   private extractSummary(content: string[]): string {
-    // Find paragraph after headline
-    for (let i = 1; i < Math.min(content.length, 5); i++) {
-      if (content[i].length > 50 && !content[i].includes("@")) {
+    for (let i = 1; i < Math.min(content.length, 10); i++) {
+      if (content[i].length > 40 && !content[i].includes("@")) {
         return content[i].substring(0, 500);
       }
     }
@@ -438,19 +446,20 @@ export class UserProfileReader {
     let currentExp: Partial<WorkExperience> = {};
     
     for (const line of content) {
-      // Detect company/role headers
-      if (line.match(/\b(Google|Microsoft|Amazon|Apple|Meta|Netflix|Company|Inc|LLC|Corp)\b/i)) {
+      const isCompanyLine = line.match(/\b(Google|Microsoft|Amazon|Apple|Meta|Netflix|Company|Inc|LLC|Corp|Solutions|Tech|Systems)\b/i) || 
+                           (line.includes("@") && line.length < 50);
+
+      if (isCompanyLine) {
         if (currentExp.company) {
           experiences.push(currentExp as WorkExperience);
         }
-        currentExp = { company: line.replace(/[#*_]/g, "").trim(), skills: [] };
-      }
-      // Detect duration
-      else if (line.match(/\d{4}\s*[-–]\s*(\d{4}|Present|Current)/i)) {
+        currentExp = { 
+          company: line.replace(/[#*_]/g, "").split("@").pop()?.trim() || line.trim(), 
+          skills: [] 
+        };
+      } else if (line.match(/\d{4}\s*[-–]\s*(\d{4}|Present|Current)/i)) {
         currentExp.duration = line.trim();
-      }
-      // Detect description
-      else if (currentExp.company && line.length > 30 && !line.match(/^\d/)) {
+      } else if (currentExp.company && line.length > 20) {
         currentExp.description = (currentExp.description || "") + " " + line;
       }
     }
@@ -464,7 +473,7 @@ export class UserProfileReader {
 
   private extractEducation(content: string[]): Education[] {
     const education: Education[] = [];
-    const degreePatterns = ["Bachelor", "Master", "PhD", "MBA", "Associate", "B.S.", "M.S.", "B.A.", "M.A."];
+    const degreePatterns = ["Bachelor", "Master", "PhD", "MBA", "Associate", "B.S.", "M.S.", "B.A.", "M.A.", "University", "College"];
     
     for (const line of content) {
       if (degreePatterns.some(d => line.includes(d))) {
