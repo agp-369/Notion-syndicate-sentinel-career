@@ -132,22 +132,37 @@ export class UserProfileReader {
       const title = page.properties?.title?.title?.[0]?.plain_text?.toLowerCase() || 
                     page.properties?.Name?.title?.[0]?.plain_text?.toLowerCase() || "";
       
-      const blocks = await this.getPageContent(page.id);
-      const content = blocks.join(" ").toLowerCase();
+      const isHighlyLikely = title.includes("resume") || 
+                             title.includes("cv") || 
+                             title.includes("profile") || 
+                             title.includes("about me") ||
+                             title.includes("experience") ||
+                             title.includes("portfolio");
 
-      // Detect page type by content
-      if (title.includes("resume") || content.includes("experience") && content.includes("company")) {
-        discovered.resumePageId = page.id;
+      if (isHighlyLikely) {
+        try {
+          const blocks = await this.getPageBlocks(page.id);
+          const content = this.extractTextFromBlocks(blocks).join(" ").toLowerCase();
+          
+          if (content.includes("experience") || content.includes("skills") || content.includes("education") || content.includes("work")) {
+            if (title.includes("resume") || title.includes("cv")) discovered.resumePageId = page.id;
+            if (title.includes("profile") || title.includes("about")) discovered.personalPageId = page.id;
+            if (title.includes("skill")) discovered.skillsPageId = page.id;
+            if (title.includes("goal")) discovered.goalsPageId = page.id;
+          }
+        } catch (err) {
+          console.error(`Error reading page ${page.id}:`, err);
+        }
+      } else {
+        // Fallback by title only if we don't have a better match yet
+        if (title.includes("resume") && !discovered.resumePageId) discovered.resumePageId = page.id;
+        if ((title.includes("profile") || title.includes("about")) && !discovered.personalPageId) discovered.personalPageId = page.id;
+        if (title.includes("skill") && !discovered.skillsPageId) discovered.skillsPageId = page.id;
+        if (title.includes("goal") && !discovered.goalsPageId) discovered.goalsPageId = page.id;
       }
-      if (title.includes("about") || title.includes("personal") || title.includes("contact")) {
-        discovered.personalPageId = page.id;
-      }
-      if (title.includes("skill") || content.includes("technologies") || content.includes("proficient")) {
-        discovered.skillsPageId = page.id;
-      }
-      if (title.includes("goal") || title.includes("objective") || title.includes("aspiration")) {
-        discovered.goalsPageId = page.id;
-      }
+
+      // If we found the primary ones, we can stop early
+      if (discovered.resumePageId && discovered.personalPageId) break;
     }
 
     return discovered;

@@ -97,6 +97,8 @@ export function AgentOSContent() {
   const { isLoaded, userId } = useAuth();
   const { user } = useUser();
 
+  const [isAutoLoading, setIsAutoLoading] = useState(false);
+  const [isManualLoading, setIsManualLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "jobs" | "skills" | "research" | "email" | "chat" | "settings">("overview");
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -255,7 +257,7 @@ export function AgentOSContent() {
   const isPageSelected = (pageId: string): boolean => selectedPages.includes(pageId);
 
   const agentAutoSetup = async () => {
-    setIsLoading(true);
+    setIsAutoLoading(true);
     addLog("🤖 Forensic Agent analyzing your workspace...");
 
     try {
@@ -264,6 +266,14 @@ export function AgentOSContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "FULL_SETUP", agentAutoDecide: true })
       });
+
+      if (!res.ok) {
+        const text = await res.text();
+        if (text.includes("An error occurred") || res.status === 504) {
+          throw new Error("Server timeout or error. Please try manual page selection below.");
+        }
+        throw new Error(`Server returned ${res.status}`);
+      }
 
       const data = await res.json();
       
@@ -286,7 +296,7 @@ export function AgentOSContent() {
     } catch (e: any) {
       addLog(`❌ Error: ${e.message}`);
     } finally {
-      setIsLoading(false);
+      setIsAutoLoading(false);
     }
   };
 
@@ -296,7 +306,7 @@ export function AgentOSContent() {
       return;
     }
     
-    setIsLoading(true);
+    setIsManualLoading(true);
     addLog(`📁 Selected ${selectedPages.length} pages, creating Career OS...`);
 
     try {
@@ -314,6 +324,7 @@ export function AgentOSContent() {
         body: JSON.stringify({ mode: "SETUP", selectedPages })
       });
 
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();
       
       if (data.success) {
@@ -334,7 +345,7 @@ export function AgentOSContent() {
     } catch (e: any) {
       addLog(`❌ Error: ${e.message}`);
     } finally {
-      setIsLoading(false);
+      setIsManualLoading(false);
     }
   };
 
@@ -817,11 +828,11 @@ export function AgentOSContent() {
                 </div>
                 <button
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); agentAutoSetup(); }}
-                  disabled={isLoading}
+                  disabled={isAutoLoading || isManualLoading}
                   className="px-10 py-5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:from-slate-600 disabled:to-slate-600 text-white rounded-xl font-black text-sm flex items-center gap-3 transition-all duration-200 cursor-pointer transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed shadow-xl shadow-cyan-500/20"
                 >
-                  {isLoading ? <Loader2 className="animate-spin" size={20} /> : <Wand2 size={20} />}
-                  {isLoading ? "Analyzing..." : "Start Auto-Setup"}
+                  {isAutoLoading ? <Loader2 className="animate-spin" size={20} /> : <Wand2 size={20} />}
+                  {isAutoLoading ? "Analyzing..." : "Start Auto-Setup"}
                 </button>
               </div>
             </div>
@@ -863,10 +874,10 @@ export function AgentOSContent() {
                 </p>
                 <button
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCreateFromSelected(); }}
-                  disabled={isLoading || selectedPages.length === 0}
+                  disabled={isManualLoading || isAutoLoading || selectedPages.length === 0}
                   className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:cursor-not-allowed disabled:text-slate-500 text-white rounded-xl font-bold text-sm flex items-center gap-3 transition-all duration-200 cursor-pointer"
                 >
-                  {isLoading ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
+                  {isManualLoading ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
                   Create from Selected
                 </button>
               </div>
