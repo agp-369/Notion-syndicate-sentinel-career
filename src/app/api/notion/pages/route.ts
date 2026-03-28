@@ -25,8 +25,8 @@ export async function GET() {
   try {
     const mcp = new NotionMCPClient(token);
     
-    // Robust search without filters to get everything first
-    const searchRes = await mcp.gateway.callTool("notion_search", { 
+    // Robust search using v2.0 tool name
+    const searchRes = await mcp.gateway.callTool("notion-search", { 
       page_size: 100 
     });
 
