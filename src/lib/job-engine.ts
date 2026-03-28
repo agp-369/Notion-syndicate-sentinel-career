@@ -88,8 +88,11 @@ Focus on skills that:
 `;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const text = result.response.text().replace(/```json/g, "").replace(/```/g, "").trim();
+      const result = await this.model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json" }
+      });
+      const text = result.response.text().trim();
       return JSON.parse(text);
     } catch (error) {
       console.error("Error analyzing skill gaps:", error);
@@ -114,7 +117,8 @@ USER PROFILE:
 - Goals: ${profile.goals.join(", ") || "Career growth"}
 - Preferences: ${profile.preferences.remote ? "Prefers remote work" : ""}
 
-Generate ${count} personalized job recommendations that would be great matches for this profile.
+Generate ${count} REALISTIC, VERIFIABLE personalized job recommendations that would be great matches for this profile.
+DO NOT INVENT FAKE COMPANIES OR FAKE ROLES. ONLY suggest real-world, widely-known companies that actively hire for these roles.
 
 For each job, provide:
 1. Job title (realistic for this person's level)
@@ -147,11 +151,16 @@ IMPORTANT:
 - Consider their existing skills as a foundation
 - Factor in career progression goals
 - Be realistic about market value
+- DO NOT hallucinate fake companies
+- DO NOT invent skills the user does not have
 `;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const text = result.response.text().replace(/```json/g, "").replace(/```/g, "").trim();
+      const result = await this.model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json" }
+      });
+      const text = result.response.text().trim();
       return JSON.parse(text);
     } catch (error) {
       console.error("Error generating recommendations:", error);
@@ -218,8 +227,11 @@ The roadmap should be REALISTIC and ACTIONABLE.
 `;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const text = result.response.text().replace(/```json/g, "").replace(/```/g, "").trim();
+      const result = await this.model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json" }
+      });
+      const text = result.response.text().trim();
       return JSON.parse(text);
     } catch (error) {
       console.error("Error generating roadmap:", error);
@@ -378,8 +390,11 @@ Be THOROUGH but FAIR. Good jobs can have minor issues.
 `;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const text = result.response.text().replace(/```json/g, "").replace(/```/g, "").trim();
+      const result = await this.model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json" }
+      });
+      const text = result.response.text().trim();
       return JSON.parse(text);
     } catch (error) {
       console.error("Error in forensic analysis:", error);

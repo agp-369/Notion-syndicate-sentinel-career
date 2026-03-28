@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth, SignInButton, UserButton, useUser } from "@clerk/nextjs";
+import { SimulationRunner } from "@/components/simulations";
 
 interface NotionPage {
   id: string;
@@ -169,6 +170,22 @@ export function AgentOSContent() {
   useEffect(() => {
     if (userId) checkConnection();
   }, [userId]);
+
+  // Automated Watchdog Polling
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (infraCreated && setupComplete) {
+      interval = setInterval(() => {
+        // Background scan
+        fetch("/api/watchdog", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ careerPageId, profile })
+        }).catch(err => console.error("Watchdog error:", err));
+      }, 300000); // Poll every 5 minutes automatically
+    }
+    return () => clearInterval(interval);
+  }, [infraCreated, setupComplete, careerPageId, profile]);
 
   const [isScanning, setIsScanning] = useState(false);
   
@@ -1615,45 +1632,26 @@ export function AgentOSContent() {
         </div>
       )}
 
-      {/* Activity Log */}
-      <div className="fixed bottom-6 right-6 max-w-xs w-full bg-slate-900/95 backdrop-blur-xl p-4 rounded-2xl border border-white/10">
-        <div className="flex items-center gap-2 mb-2">
-          <div className={`w-2 h-2 rounded-full ${isLoading ? "bg-amber-500 animate-pulse" : "bg-cyan-500"}`} />
-          <p className="text-[9px] font-black uppercase text-slate-400">Activity</p>
-        </div>
-        <div className="space-y-1 max-h-24 overflow-y-auto">
-          {logs.map((log, i) => (
-            <p key={i} className="text-[10px] text-cyan-400/80 font-mono">{log}</p>
-          ))}
-        </div>
-      </div>
-
-      {/* Simple Loading Overlay */}
+      {/* Advanced Loading Simulation Overlay */}
       <AnimatePresence>
         {(isLoading || isAutoLoading || isScanning) && (
           <motion.div 
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center"
+            className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-6"
           >
-            <div className="relative w-20 h-20">
-              <motion.div 
-                animate={{ rotate: 360 }} 
-                transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                className="absolute inset-0 border-2 border-t-cyan-500 border-r-transparent border-b-transparent border-l-transparent rounded-full"
+            <div className="w-full max-w-lg">
+              <SimulationRunner 
+                type={
+                  isAutoLoading ? "extract" :
+                  isScanning ? "scrape" :
+                  activeTab === "research" ? "forensic" :
+                  activeTab === "jobs" ? "scrape" :
+                  activeTab === "skills" ? "learn" : "search"
+                } 
               />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Loader2 className="text-cyan-500 animate-spin" size={32} />
-              </div>
             </div>
-            <motion.p 
-              initial={{ y: 10, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              className="mt-4 text-cyan-400 font-mono text-[10px] tracking-widest uppercase font-black"
-            >
-              Agent working in Notion...
-            </motion.p>
           </motion.div>
         )}
       </AnimatePresence>

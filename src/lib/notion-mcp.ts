@@ -143,15 +143,19 @@ export class NotionMCPClient {
       // 3. Only use LLM if strict extraction found nothing, and with STRICT instructions
       if (profile.skills.length === 0 && consolidatedText.trim()) {
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-        const prompt = `Strictly extract career data from text. DO NOT GUESS.
+        const prompt = `Strictly extract career data from text. DO NOT GUESS OR INFER.
+If a field is explicitly stated, extract it. If it is NOT explicitly present in the text, return empty string for text fields, 0 for numbers, or [] for arrays. DO NOT invent skills.
 Text: ${consolidatedText.substring(0, 8000)}
-JSON Output: { "name": "", "skills": [], "experience_years": 0, "current_role": "" }`;
-        const aiRes = await model.generateContent(prompt);
-        const extracted = JSON.parse(aiRes.response.text().replace(/```json/g, "").replace(/```/g, "").trim());
-        profile.name = profile.name || extracted.name;
+JSON Output Schema: { "name": string, "skills": string[], "yearsOfExperience": number, "currentRole": string }`;
+        const aiRes = await model.generateContent({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: "application/json" }
+        });
+        const extracted = JSON.parse(aiRes.response.text().trim());
+        profile.name = profile.name || extracted.name || "";
         profile.skills = extracted.skills || [];
-        profile.yearsOfExperience = extracted.experience_years || 0;
-        profile.currentRole = extracted.current_role || "";
+        profile.yearsOfExperience = extracted.yearsOfExperience || 0;
+        profile.currentRole = extracted.currentRole || "";
       }
 
     } catch (e) { console.error("[BACKEND] Profile sync failed."); }
