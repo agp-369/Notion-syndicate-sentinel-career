@@ -95,6 +95,16 @@ export class NotionMCPClient {
   }
 
   /**
+   * Search Notion workspace for pages or databases
+   */
+  async searchWorkspace(query: string, onLog?: (tx: MCPTransaction) => void) {
+    return this.gateway.callTool("notion_search", {
+      query,
+      page_size: 50
+    }, onLog, [`Searching for "${query}" in workspace...`]);
+  }
+
+  /**
    * Provision or RECOVER existing Lumina infrastructure.
    */
   async initializeWorkspace(
