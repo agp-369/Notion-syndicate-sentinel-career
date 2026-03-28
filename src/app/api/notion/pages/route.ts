@@ -60,9 +60,22 @@ export async function GET() {
     });
 
   } catch (err: any) {
-    console.error("[NOTION_PAGES_MCP] Error:", err);
+    console.error("[NOTION_PAGES_MCP] Full Error:", err);
+    console.error("[NOTION_PAGES_MCP] Error message:", err.message);
+    console.error("[NOTION_PAGES_MCP] Error code:", err.code);
+    console.error("[NOTION_PAGES_MCP] Error status:", err.status);
+    
+    // Check if it's an MCP connection error
+    const errorMessage = err.message || "Failed to fetch Notion pages";
+    const isMCPError = errorMessage.includes("mcp.notion.com") || errorMessage.includes("fetch");
+    
     return NextResponse.json(
-      { success: false, error: err.message || "Failed to fetch Notion pages" },
+      { 
+        success: false, 
+        error: errorMessage,
+        isMCPError,
+        tokenPrefix: token ? token.substring(0, 10) + "..." : "no token"
+      },
       { status: 500 }
     );
   }

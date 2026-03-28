@@ -43,6 +43,8 @@ export class NotionMCPGateway {
   private async ensureConnected(): Promise<void> {
     if (this.connected) return;
     
+    console.log(`[MCP GATEWAY] Connecting to mcp.notion.com with token prefix: ${this.token.substring(0, 15)}...`);
+    
     const transport = new StreamableHTTPClientTransport(
       new URL("https://mcp.notion.com/mcp"),
       {
@@ -55,8 +57,14 @@ export class NotionMCPGateway {
       }
     );
     
-    await this.client.connect(transport);
-    this.connected = true;
+    try {
+      await this.client.connect(transport);
+      this.connected = true;
+      console.log(`[MCP GATEWAY] Connected successfully!`);
+    } catch (e: any) {
+      console.error(`[MCP GATEWAY] Connection failed:`, e.message);
+      throw e;
+    }
   }
 
   async listTools(onLog?: (tx: MCPTransaction) => void) {
@@ -118,8 +126,13 @@ export class NotionMCPGateway {
 
     const start = Date.now();
     try {
+      console.log(`[MCP GATEWAY] Calling tool: ${toolName}`);
+      console.log(`[MCP GATEWAY] Args:`, JSON.stringify(args).substring(0, 200));
+      
       const raw = await this.client.callTool({ name: toolName, arguments: args });
       tx.duration = Date.now() - start;
+
+      console.log(`[MCP GATEWAY] Response received:`, JSON.stringify(raw).substring(0, 200));
 
       let parsed: any = {};
       const content = (raw as any).content;
@@ -143,6 +156,7 @@ export class NotionMCPGateway {
     } catch (e: any) {
       tx.duration = Date.now() - start;
       tx.error = e.message;
+      console.error(`[MCP GATEWAY] Error calling ${toolName}:`, e.message);
       tx.thinking!.push(`⟵ ${toolName} failed: ${e.message} ❌`);
       this.transactions.push({ ...tx });
       if (onLog) onLog({ ...tx });
