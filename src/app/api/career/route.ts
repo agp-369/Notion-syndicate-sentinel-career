@@ -20,28 +20,26 @@ export async function POST(req: NextRequest) {
     const mcp = new NotionMCPClient(token);
     const jobEngine = new JobRecommendationEngine();
 
-    // ── CORE SYNC ENGINE (Deep extraction + Discovery) ──────────────────────────
+    // ── DATA RECOVERY & SYNC (THE FIX) ──────────────────────────────────────────
     if (mode === "FULL_SETUP" || mode === "SETUP" || mode === "LOAD_DATA") {
-      console.log(`[SYNC] Protocol 2025-09-03 active. Beginning deep sync...`);
+      console.log(`[BACKEND] Synchronizing workspace DNA...`);
       
-      // 1. Deep Read Profile (Fetch block children recursively)
-      const profile = await mcp.discoverAndReadProfile();
-      
-      // 2. Discover/Recover Infrastructure
+      // 1. Recover existing state first
       let setup = await mcp.searchDatabases();
       
-      // 3. If setup requested but infra missing, build it
+      // 2. Discover DNA from pages (Deep Read)
+      const profile = await mcp.discoverAndReadProfile();
+      
+      // 3. Provision if setup requested and databases missing
       if (!setup.jobsDataSourceId && (mode === "FULL_SETUP" || mode === "SETUP")) {
         const searchRes = await mcp.gateway.callTool("notion_search", { page_size: 5 });
         const parentPageId = (searchRes as any)?.results?.find((i: any) => i.object === "page")?.id;
         if (parentPageId) {
           setup = await mcp.initializeWorkspace(parentPageId);
-        } else {
-          throw new Error("PROTOCOL_ERROR: No shared page found. Please grant access to at least one page in Notion.");
         }
       }
 
-      // 4. Intelligence Layer - Only generate if profile exists
+      // 4. Actionable Intelligence based on REAL extracted data
       let jobs: any[] = [];
       let skillGaps: any[] = [];
       
@@ -56,19 +54,13 @@ export async function POST(req: NextRequest) {
         jobs: jobs.map((j, i) => ({ ...j, id: `job_${i}`, status: "researching" })),
         skills: skillGaps,
         infrastructure: setup,
-        setupComplete: !!setup.jobsDataSourceId,
-        agentLogs: [
-          "✓ Deep-read Notion block hierarchy",
-          `✓ Found ${profile.skills.length} skills in profile`,
-          `✓ Recovered ${setup.jobsDataSourceId ? "active" : "new"} infrastructure`,
-          `✓ Matched ${jobs.length} forensic opportunities`
-        ]
+        setupComplete: !!setup.jobsDataSourceId
       });
     }
 
-    return NextResponse.json({ success: false, error: "MODE_UNSUPPORTED" }, { status: 400 });
+    return NextResponse.json({ success: false, error: "Invalid mode" }, { status: 400 });
   } catch (err: any) {
-    console.error("[CAREER_API] Critical Failure:", err);
+    console.error("[CAREER_API] Critical Error:", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
