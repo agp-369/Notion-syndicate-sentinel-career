@@ -1,273 +1,190 @@
-# Forensic Career OS - Claude Desktop Integration Guide
+# Forensic Career OS - Notion MCP v2.0 Integration Guide
 
-## Step-by-Step: How to Test Notion MCP with Claude Desktop
+## ⚠️ Important: New Notion MCP v2.0
 
-### Part 1: Configure Claude Desktop
+The Notion MCP Server v2.0.0+ has **breaking changes** with new tool names!
 
-#### Step 1.1: Find Claude Desktop Config File
+### New Tool Names (v2.0):
 
-**macOS:**
-```bash
-~/Library/Application Support/Claude/claude_desktop_config.json
+| Old (v1.x) | New (v2.0) | Description |
+|------------|-------------|-------------|
+| `notion_search` | `notion-search` | Search workspace |
+| `post-database-query` | `notion-query-data-sources` | Query databases |
+| `create-a-database` | `notion-create-database` | Create databases |
+| `update-a-database` | `notion-update-data-source` | Update data sources |
+| - | `notion-fetch` | Get page content |
+| - | `notion-create-pages` | Create pages |
+| - | `notion-update-page` | Update pages |
+
+### API Version: 2025-09-03
+
+---
+
+## How Forensic Career OS Uses Notion MCP v2.0
+
+### Architecture
+
+```
+┌─────────────────────────────────────────┐
+│     Forensic Career OS (Next.js App)     │
+├─────────────────────────────────────────┤
+│                                          │
+│   ┌─────────────────────────────────┐    │
+│   │   NotionMCPClient (v2.0)       │    │
+│   │   - notion-search               │    │
+│   │   - notion-fetch                │    │
+│   │   - notion-create-pages         │    │
+│   │   - notion-create-database     │    │
+│   └───────────────┬─────────────────┘    │
+│                   │                      │
+│                   ▼                      │
+│   ┌─────────────────────────────────┐    │
+│   │   StreamableHTTP Transport       │    │
+│   │   → https://mcp.notion.com/mcp  │    │
+│   └───────────────┬─────────────────┘    │
+│                   │                      │
+└───────────────────┼──────────────────────┘
+                    │
+                    ▼
+        ┌───────────────────────┐
+        │   Notion MCP v2.0     │
+        │   Remote Server        │
+        └───────────┬───────────┘
+                    │
+                    ▼
+        ┌───────────────────────┐
+        │   Notion API v2       │
+        │   2025-09-03         │
+        └───────────────────────┘
 ```
 
-**Windows:**
-```bash
-%APPDATA%\Claude\claude_desktop_config.json
-```
+---
 
-**Linux:**
-```bash
-~/.config/Claude/claude_desktop_config.json
-```
+## Claude Desktop Configuration (v2.0)
 
-#### Step 1.2: Create/Edit the Config
+### Step 1: Get Your Notion Token
+
+1. Go to https://www.notion.so/profile/integrations
+2. Create new integration or select existing
+3. Copy the **Internal Integration Secret** (starts with `ntn_`)
+
+### Step 2: Configure Claude Desktop
+
+Edit your config file:
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "notion": {
       "command": "npx",
-      "args": ["-y", "@notionhq/notion-sdk-py"]
+      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "env": {
+        "NOTION_TOKEN": "ntn_your_integration_token_here"
+      }
     }
   }
 }
 ```
 
-**Alternative: Use the Notion API directly via curl command:**
+### Step 3: Restart Claude Desktop
 
-```json
-{
-  "mcpServers": {
-    "notion-api": {
-      "command": "curl",
-      "args": ["-X", "POST", "https://api.notion.com/v1/search", 
-               "-H", "Authorization: Bearer YOUR_NOTION_TOKEN",
-               "-H", "Notion-Version: 2022-06-28",
-               "-H", "Content-Type: application/json",
-               "-d", "{\"filter\": {\"property\": \"object\", \"value\": \"page\"}}"]
-    }
-  }
-}
-```
+After adding the config, **quit and reopen Claude Desktop**.
 
-#### Step 1.3: Restart Claude Desktop
+### Step 4: Verify Connection
 
-After editing the config, **quit and reopen Claude Desktop**.
+Look for the 🔌 MCP indicator at the bottom of Claude Desktop.
 
 ---
 
-### Part 2: Test Notion MCP
+## Complete MCP Tool Reference (v2.0)
 
-#### Test 1: Search Your Notion Workspace
-
-Ask Claude:
-```
-Search my Notion workspace for any pages containing "resume" or "profile"
-```
-
-Claude should use the Notion MCP to:
-1. Call `notion_search` tool
-2. Return list of pages found
-3. Show the MCP tool being used
-
-#### Test 2: Create a Test Page
-
-Ask Claude:
-```
-Create a new page called "Claude MCP Test" in my Notion workspace
-```
-
-Claude should use:
-1. `notion_create_page` tool
-2. Show the page creation result
-
-#### Test 3: Read Page Content
-
-Ask Claude:
-```
-Read the content of the "Claude MCP Test" page you just created
-```
-
-Claude should use:
-1. `notion_get_block_children` tool
-2. Display the page content
+| Tool | Description |
+|------|-------------|
+| `notion-search` | Search across Notion workspace |
+| `notion-fetch` | Get page/database content |
+| `notion-create-pages` | Create new pages |
+| `notion-update-page` | Update page properties/content |
+| `notion-move-pages` | Move pages to different parent |
+| `notion-duplicate-page` | Duplicate a page |
+| `notion-create-database` | Create new database |
+| `notion-update-data-source` | Update database schema |
+| `notion-create-view` | Create new view |
+| `notion-update-view` | Update view configuration |
+| `notion-query-data-sources` | Query across data sources |
+| `notion-query-database-view` | Query using view filters |
+| `notion-create-comment` | Add comment to page |
+| `notion-get-comments` | Get page comments |
+| `notion-get-teams` | List workspace teams |
+| `notion-get-users` | List workspace users |
+| `notion-get-user` | Get current user info |
+| `notion-get-self` | Get bot/workspace info |
 
 ---
 
-### Part 3: Verify MCP in Forensic Career OS Dashboard
+## Our App's MCP Implementation
 
-1. Go to **https://syndicate-sentinel.vercel.app**
-2. Connect Notion via OAuth
-3. Click **MCP Monitor** tab
-4. Click **Test MCP** button
-5. Watch the transaction log show real MCP operations
+### Key Features
 
----
+1. **StreamableHTTP Transport** - Uses HTTP transport for web apps
+2. **Transaction Logging** - Every MCP call is logged with timing
+3. **Error Handling** - Graceful degradation on failures
+4. **Auto-reconnect** - Reconnects on connection loss
 
-### Part 4: What MCP Operations Look Like
+### Code Example
 
-When using Notion MCP, you'll see these operations:
+```typescript
+import { NotionMCPClient } from "./notion-mcp";
 
-```
-⟶ MCP: tools/call
-  name: "notion_search"
-  query: {"filter": {"object": "page"}}
-  Sending to mcp.notion.com...
+// Create client with Notion token
+const client = new NotionMCPClient(notionToken);
 
-⟵ notion_search → id: abc123... (234ms) ✅
+// Initialize workspace
+const setup = await client.initializeWorkspace(parentPageId, (tx) => {
+  console.log(tx.method, tx.duration, tx.error);
+});
+
+// Search workspace
+const results = await client.searchWorkspace("resume skills");
+
+// Create forensic entry
+await client.logForensicAudit(dataSourceId, analysis, jobUrl);
 ```
 
 ---
 
-### Part 5: Troubleshooting
+## Submission Checklist for Challenge
 
-#### Issue: "MCP Server not found"
-
-**Solution:** Make sure Claude Desktop is updated to the latest version that supports MCP.
-
-#### Issue: "Notion token invalid"
-
-**Solution:** 
-1. Go to https://www.notion.so/my-integrations
-2. Create a new integration or copy the existing token
-3. Update the config with your token
-
-#### Issue: "Permission denied"
-
-**Solution:** 
-1. Open Notion
-2. Share the pages with your integration
-3. Go to page settings → Connections → Add connection
+- [x] Uses Notion MCP v2.0 (API 2025-09-03)
+- [x] Correct tool names (notion-search, not notion_search)
+- [x] Transaction logging for transparency
+- [x] StreamableHTTP transport
+- [x] OAuth or token-based auth
+- [x] Working deployed app
+- [x] Video demo showing MCP in action
 
 ---
 
-### Part 6: Quick Test Commands for Claude
+## Resources
 
-Copy and paste these commands into Claude Desktop:
-
-```
-1. "List all available MCP tools"
-2. "Search Notion for pages with 'career'"
-3. "Create a test page in Notion"
-4. "Show me your Notion workspace structure"
-5. "What Notion databases do I have access to?"
-```
+- [Notion MCP Documentation](https://developers.notion.com/docs/mcp)
+- [Supported Tools](https://developers.notion.com/guides/mcp/mcp-supported-tools.md)
+- [Official GitHub](https://github.com/makenotion/notion-mcp-server)
+- [API Reference](https://developers.notion.com/reference/intro)
 
 ---
 
-## How Forensic Career OS Uses Notion MCP
+## Troubleshooting
 
-Our app connects to the **official Notion MCP server** at:
-```
-https://mcp.notion.com/mcp
-```
+### Error: "Tool not found"
+→ You're using old tool names. Update to v2.0 names (hyphens, not underscores)
 
-### What Our App Does with MCP:
+### Error: "401 Unauthorized"
+→ Your NOTION_TOKEN is invalid or expired. Get a new one from Notion integrations.
 
-1. **Workspace Setup**
-   - Creates databases for job tracking
-   - Creates pages for skills and roadmaps
-   - Sets up the Career OS infrastructure
+### Error: "Rate limited"
+→ You're making too many requests. Notion MCP has 180 requests/min limit.
 
-2. **Real-time Monitoring**
-   - Every Notion operation is logged as a transaction
-   - Shows MCP method, parameters, and duration
-   - Displays success/error status
-
-3. **Forensic Analysis**
-   - Uses MCP to write forensic reports to Notion
-   - Creates trust score databases
-   - Logs all job verifications
-
----
-
-## Architecture: How We Use Notion MCP
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Forensic Career OS                       │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│   ┌─────────────┐     ┌──────────────┐     ┌────────────┐  │
-│   │   Clerk     │     │  Job Engine  │     │  Forensic  │  │
-│   │   Auth      │     │  (AI Jobs)   │     │  Analyzer  │  │
-│   └──────┬──────┘     └──────┬───────┘     └─────┬──────┘  │
-│          │                   │                     │         │
-│          └─────────────┬─────┴─────────────────────┘         │
-│                        ▼                                    │
-│              ┌─────────────────────┐                          │
-│              │  NotionMCPClient   │                          │
-│              │  (Gateway Layer)    │                          │
-│              └──────────┬──────────┘                          │
-│                         │                                    │
-│                         ▼                                    │
-│              ┌─────────────────────┐                          │
-│              │  MCP Protocol SDK   │                          │
-│              │  StreamableHTTP    │                          │
-│              └──────────┬──────────┘                          │
-│                         │                                    │
-└─────────────────────────┼────────────────────────────────────┘
-                          │
-                          ▼
-              ┌─────────────────────────┐
-              │   Notion MCP Server    │
-              │   https://mcp.notion.com/mcp   │
-              └────────────┬────────────┘
-                           │
-                           ▼
-              ┌─────────────────────────┐
-              │    Notion API          │
-              │  (Your Workspace)      │
-              └─────────────────────────┘
-```
-
----
-
-## Environment Variables Required
-
-For the app to work, ensure these are set in Vercel:
-
-```
-NOTION_CLIENT_ID=your_notion_client_id
-NOTION_CLIENT_SECRET=your_notion_client_secret
-GEMINI_API_KEY=your_gemini_api_key (optional, for forensics)
-NEXT_PUBLIC_APP_URL=https://syndicate-sentinel.vercel.app
-```
-
----
-
-## Getting Your Notion OAuth Credentials
-
-1. Go to https://www.notion.so/my-integrations
-2. Click **+ New integration**
-3. Name it "Forensic Career OS"
-4. Select **OAuth** as the authentication type
-5. Set redirect URI to: `https://syndicate-sentinel.vercel.app/api/notion/callback`
-6. Enable these capabilities:
-   - Read content
-   - Update content
-   - Insert content
-7. Copy the **OAuth Client ID** and **Client Secret**
-
----
-
-## Final Verification Checklist
-
-After setup, verify these work:
-
-- [ ] Claude Desktop shows Notion MCP in available tools
-- [ ] Can search Notion workspace from Claude Desktop
-- [ ] App dashboard shows "MCP Monitor" tab
-- [ ] "Test MCP" button shows connection success
-- [ ] Transaction log shows MCP operations
-
----
-
-## Support
-
-If issues persist:
-1. Check Vercel logs: `vercel logs`
-2. Verify Notion integration is shared with your workspace
-3. Ensure OAuth credentials are correct
-4. Check browser console for errors
+### Claude Desktop MCP not connecting
+→ Ensure config file is valid JSON and Claude Desktop is restarted.

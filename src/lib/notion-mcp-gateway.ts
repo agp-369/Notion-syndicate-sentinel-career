@@ -1,32 +1,31 @@
+/**
+ * NotionMCPGateway - Connects to official Notion MCP server v2.0+
+ * Uses StreamableHTTP transport to https://mcp.notion.com/mcp
+ * 
+ * Tool names (v2.0):
+ * - notion-search          → Search workspace
+ * - notion-fetch           → Get page content
+ * - notion-create-pages    → Create pages
+ * - notion-update-page     → Update pages
+ * - notion-create-database → Create databases
+ * - notion-query-data-sources → Query databases
+ * - notion-update-data-source → Update data sources
+ */
+
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
-/**
- * Every MCP tool call is captured as a transaction for real-time UI display.
- */
 export interface MCPTransaction {
   id: string;
   timestamp: string;
-  /** The MCP tool name, e.g. "notion_create_page" */
   method: string;
   params?: Record<string, unknown>;
   result?: unknown;
   error?: string;
   duration?: number;
-  /** Human-readable trace lines shown in the live monitor */
   thinking?: string[];
 }
 
-/**
- * NotionMCPGateway — connects to the official Notion MCP server at
- * https://mcp.notion.com/mcp using the Model Context Protocol
- * StreamableHTTP transport (POST + Server-Sent Events).
- *
- * Every tool call is:
- *   1. Logged as a pending MCPTransaction (onLog called immediately)
- *   2. Sent via JSON-RPC 2.0 through the SDK Client
- *   3. Response parsed and logged with duration (onLog called again)
- */
 export class NotionMCPGateway {
   private client: Client;
   private token: string;
@@ -36,35 +35,30 @@ export class NotionMCPGateway {
   constructor(token: string) {
     this.token = token;
     this.client = new Client(
-      { name: "lumina-sentinel", version: "2.0.0" },
+      { name: "forensic-career-os", version: "2.0.0" },
       { capabilities: {} }
     );
   }
 
-  /** Lazily opens the MCP session on first use. */
   private async ensureConnected(): Promise<void> {
     if (this.connected) return;
+    
     const transport = new StreamableHTTPClientTransport(
       new URL("https://mcp.notion.com/mcp"),
       {
         requestInit: {
           headers: {
-            "Authorization": `Bearer ${this.token}`,
+            Authorization: `Bearer ${this.token}`,
             "Notion-Version": "2025-09-03",
-            "Content-Type": "application/json",
           },
         },
       }
     );
+    
     await this.client.connect(transport);
     this.connected = true;
   }
 
-  /**
-   * Perform MCP capability handshake — lists available Notion tools.
-   * Call once at the start of each workspace operation to show the
-   * handshake in the live monitor.
-   */
   async listTools(onLog?: (tx: MCPTransaction) => void) {
     await this.ensureConnected();
 
@@ -74,9 +68,9 @@ export class NotionMCPGateway {
       method: "tools/list",
       thinking: [
         "⟶ MCP HANDSHAKE → mcp.notion.com",
-        "  method: tools/list",
-        "  Transport: StreamableHTTP (POST + SSE)",
-        "  Negotiating available Notion tools...",
+        "  Transport: StreamableHTTP",
+        "  API Version: 2025-09-03",
+        "  Negotiating Notion MCP v2.0 tools...",
       ],
     };
     if (onLog) onLog(tx);
@@ -85,10 +79,8 @@ export class NotionMCPGateway {
     try {
       const result = await this.client.listTools();
       tx.duration = Date.now() - start;
-      tx.result = { toolCount: result.tools.length };
-      tx.thinking!.push(
-        `⟵ ${result.tools.length} tools negotiated (${tx.duration}ms) ✅`
-      );
+      tx.result = { toolCount: result.tools.length, tools: result.tools.map((t: any) => t.name) };
+      tx.thinking!.push(`⟵ ${result.tools.length} tools available (${tx.duration}ms) ✅`);
       this.transactions.push({ ...tx });
       if (onLog) onLog({ ...tx });
       return result;
@@ -102,10 +94,6 @@ export class NotionMCPGateway {
     }
   }
 
-  /**
-   * Call a Notion MCP tool by name.
-   * The result's `content[0].text` is parsed as JSON and returned.
-   */
   async callTool(
     toolName: string,
     args: Record<string, unknown>,
@@ -115,15 +103,15 @@ export class NotionMCPGateway {
     await this.ensureConnected();
 
     const tx: MCPTransaction = {
-      id: `tx_${toolName.replace("notion_", "")}_${Date.now()}`,
+      id: `tx_${toolName.replace(/[^a-z]/gi, "")}_${Date.now()}`,
       timestamp: new Date().toISOString(),
       method: toolName,
       params: args,
       thinking: [
         `⟶ MCP: tools/call`,
-        `  name: "${toolName}"`,
+        `  tool: "${toolName}"`,
         ...(extraThinking ?? []),
-        `  Sending to mcp.notion.com...`,
+        `  → mcp.notion.com`,
       ],
     };
     if (onLog) onLog({ ...tx });
@@ -133,25 +121,22 @@ export class NotionMCPGateway {
       const raw = await this.client.callTool({ name: toolName, arguments: args });
       tx.duration = Date.now() - start;
 
-      // Notion MCP returns results as JSON text in content[0].text
       let parsed: any = {};
       const content = (raw as any).content;
       if (Array.isArray(content) && content[0]?.type === "text") {
         const text = content[0].text;
         try {
-          // If it's a JSON string, parse it. If not, return the raw text.
           parsed = (text.startsWith("{") || text.startsWith("[")) ? JSON.parse(text) : { text };
         } catch {
           parsed = { text };
         }
-      } else if (typeof raw === "object") {
-        parsed = raw; // Already an object
+      } else {
+        parsed = raw;
       }
 
       tx.result = parsed;
-      tx.thinking!.push(
-        `⟵ ${toolName} → ${parsed?.id ? `id: ${String(parsed.id).substring(0, 8)}...` : "ok"} (${tx.duration}ms) ✅`
-      );
+      const idStr = parsed?.id ? String(parsed.id).substring(0, 8) : "ok";
+      tx.thinking!.push(`⟵ ${toolName} → ${idStr} (${tx.duration}ms) ✅`);
       this.transactions.push({ ...tx });
       if (onLog) onLog({ ...tx });
       return parsed;
@@ -169,9 +154,7 @@ export class NotionMCPGateway {
     if (this.connected) {
       try {
         await this.client.close();
-      } catch {
-        // ignore close errors
-      }
+      } catch {}
       this.connected = false;
     }
   }

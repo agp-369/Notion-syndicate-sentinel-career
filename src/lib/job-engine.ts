@@ -110,9 +110,9 @@ USER PROFILE:
 - Summary: ${profile.summary}
 - Skills: ${profile.skills.join(", ")}
 - Experience: ${profile.experience.map(e => `${e.role} at ${e.company} (${e.duration})`).join("; ") || "Entry to mid level"}
-- Education: ${profile.education.map(e => `${e.degree} in ${e.field} from ${e.institution}`).join("; ") || "Not specified"}
+- Education: ${profile.education.map(e => `${e.degree} at ${e.school}`).join("; ") || "Not specified"}
 - Goals: ${profile.goals.join(", ") || "Career growth"}
-- Preferences: ${profile.preferences.remote ? "Prefers remote work" : ""} ${profile.preferences.location ? `Location: ${profile.preferences.location}` : ""}
+- Preferences: ${profile.preferences.remote ? "Prefers remote work" : ""}
 
 Generate ${count} personalized job recommendations that would be great matches for this profile.
 
@@ -253,7 +253,7 @@ SENDER PROFILE:
 - Current Role: ${profile.experience[0]?.role || "Professional"}
 - Current Company: ${profile.experience[0]?.company || "Current employer"}
 - Skills: ${profile.skills.slice(0, 5).join(", ")}
-- Key Achievement: ${profile.experience[0]?.description?.substring(0, 200) || "Relevant professional experience"}
+- Key Achievement: ${profile.experience[0]?.role || "Relevant professional experience"}
 
 TARGET:
 - Company: ${targetCompany}

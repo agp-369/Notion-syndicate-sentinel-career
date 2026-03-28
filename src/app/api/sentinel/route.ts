@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { NotionMCPClient, type MCPTransaction } from "@/lib/notion-mcp";
+import { NotionMCPClient } from "@/lib/notion-mcp";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -14,117 +14,100 @@ async function getTokenFromCookie(): Promise<string | null> {
 
 /**
  * POST /api/sentinel
- * Handles workspace management operations via Notion MCP.
+ * Forensic Career OS - MCP v2.0 Operations
  */
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { mode, payload } = body as { mode: string; payload?: any };
-
   const token = await getTokenFromCookie();
 
   if (!token) {
-    return NextResponse.json(
-      { success: false, error: "Notion not connected." },
-      { status: 401 }
-    );
+    return NextResponse.json({ success: false, error: "Notion not connected." }, { status: 401 });
   }
 
   const mcp = new NotionMCPClient(token);
 
   try {
-    // ── Scan workspace for existing Lumina databases via MCP ──────────────────────────
-    if (mode === "SCAN_WORKSPACE") {
-      const transactions: MCPTransaction[] = [];
-      const setup = await mcp.searchDatabases((tx) => transactions.push(tx));
-      return NextResponse.json({
-        success: true,
-        ...setup,
-        connected: !!(setup.jobLedgerId && setup.talentPoolId),
-        transactions
-      });
-    }
-
-    // ── Provision a fresh Lumina workspace via MCP ───────────────────────────────────
-    if (mode === "INITIALIZE_INFRASTRUCTURE") {
-      let parentPageId: string = payload?.parentPageId;
-
-      if (!parentPageId) {
-        // Use robust workspace search instead of raw gateway call
-        const searchRes = await mcp.gateway.callTool("notion_search", { page_size: 10 });
-        parentPageId = (searchRes?.results || []).find((item: any) => item.object === "page")?.id;
-
-        if (!parentPageId) {
-          return NextResponse.json(
-            { success: false, error: "No shared page found to host your workspace. Please share a page with Lumina in Notion." },
-            { status: 400 }
-          );
-        }
-      }
-
-      const transactions: MCPTransaction[] = [];
-      const setup = await mcp.initializeWorkspace(parentPageId, (tx) => transactions.push(tx));
-
-      return NextResponse.json({
-        success: true,
-        ...setup,
-        connected: !!(setup.jobLedgerId && setup.talentPoolId),
-        transactions,
-      });
-    }
-
-    // ── Read entries from a database via MCP ─────────────────────────────────────────
-    if (mode === "READ_DATABASE" && payload?.databaseId) {
-      const transactions: MCPTransaction[] = [];
-      const entries = await mcp.queryDatabase(payload.databaseId, (tx) => transactions.push(tx));
-      return NextResponse.json({ success: true, results: entries, transactions });
-    }
-
-    // ── System health check ───────────────────────────────────────────────────
+    // ── MCP Handshake / Health Check ─────────────────────────
     if (mode === "SYSTEM_DIAGNOSTICS") {
       return NextResponse.json({
         success: true,
         gemini: !!process.env.GEMINI_API_KEY,
         hasToken: true,
         connected: !!token,
+        mcpVersion: "2.0.0",
         mcpEndpoint: "https://mcp.notion.com/mcp",
+        apiVersion: "2025-09-03",
       });
     }
 
-    return NextResponse.json(
-      { success: false, error: `Unknown mode: ${mode}` },
-      { status: 400 }
-    );
+    // ── Initialize Infrastructure ─────────────────────────────
+    if (mode === "INITIALIZE_INFRASTRUCTURE") {
+      let parentPageId: string = payload?.parentPageId;
+
+      if (!parentPageId) {
+        const searchRes = await mcp.searchWorkspace("Forensic", (tx) => console.log(`[MCP] ${tx.method}`));
+        parentPageId = (searchRes?.results || [])[0]?.id;
+      }
+
+      if (!parentPageId) {
+        return NextResponse.json({ success: false, error: "No parent page found" }, { status: 400 });
+      }
+
+      const setup = await mcp.initializeWorkspace(parentPageId, (tx) => {
+        console.log(`[MCP] ${tx.method} - ${tx.duration}ms - ${tx.error || 'ok'}`);
+      });
+
+      return NextResponse.json({
+        success: true,
+        ...setup,
+        connected: true,
+      });
+    }
+
+    // ── Forensic Audit ───────────────────────────────────────
+    if (mode === "FORENSIC_AUDIT" && payload?.url) {
+      const { JobRecommendationEngine } = await import("@/lib/job-engine");
+      const jobEngine = new JobRecommendationEngine();
+      const analysis = await jobEngine.forensicAnalysis(payload.url);
+
+      return NextResponse.json({
+        success: true,
+        analysis,
+      });
+    }
+
+    return NextResponse.json({ success: false, error: `Unknown mode: ${mode}` }, { status: 400 });
+
   } catch (err: any) {
     console.error("[SENTINEL_API]", err);
-    return NextResponse.json(
-      { success: false, error: err.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
 
 /**
  * GET /api/sentinel
- * Check connection status using MCP discovery.
+ * Check connection status
  */
 export async function GET() {
   const token = await getTokenFromCookie();
-  if (!token) return NextResponse.json({ connected: false, infraCreated: false });
+  
+  if (!token) {
+    return NextResponse.json({ connected: false, infraCreated: false });
+  }
 
   try {
     const mcp = new NotionMCPClient(token);
-    const setup = await mcp.searchDatabases();
-    
-    const infraCreated = !!(setup.jobLedgerId && setup.talentPoolId);
-    
+    const searchRes = await mcp.searchWorkspace("Forensic Career OS", () => {});
+    const infraCreated = (searchRes?.results || []).length > 0;
+
     return NextResponse.json({
       connected: true,
       infraCreated,
-      setupComplete: infraCreated,
-      ...setup
+      mcpVersion: "2.0.0",
+      mcpEndpoint: "https://mcp.notion.com/mcp",
     });
-  } catch (err) {
-    console.error("[SENTINEL_GET]", err);
+  } catch {
     return NextResponse.json({ connected: true, infraCreated: false });
   }
 }
