@@ -81,6 +81,7 @@ export interface MCPOperation {
   target?: { title?: string };
   operation?: "read" | "write" | "update" | "search" | "delete" | "analyze";
   status?: "completed" | "failed" | "running" | "pending";
+  progress?: number;
   timestamp: string;
   method: string;
   duration?: number;
