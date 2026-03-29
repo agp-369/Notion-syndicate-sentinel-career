@@ -74,9 +74,21 @@ export class StrictDataExtractor {
   }
 }
 
+export interface MCPOperation {
+  id: string;
+  type: string;
+  timestamp: string;
+  method: string;
+  duration?: number;
+  thinking?: string[];
+  params?: any;
+  result?: any;
+  error?: string;
+}
+
 export class MCPOperationTracker {
-  private operations: any[] = [];
-  add(op: any) { this.operations.push(op); }
+  private operations: MCPOperation[] = [];
+  add(op: MCPOperation) { this.operations.push(op); }
   getOperations() { return this.operations; }
   clear() { this.operations = []; }
 }
