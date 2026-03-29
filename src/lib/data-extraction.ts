@@ -77,6 +77,7 @@ export class StrictDataExtractor {
 export interface MCPOperation {
   id: string;
   type: string;
+  tool?: string;
   operation?: "read" | "write" | "update" | "search" | "delete" | "analyze";
   status?: "completed" | "failed" | "running" | "pending";
   timestamp: string;
