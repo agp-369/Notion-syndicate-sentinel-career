@@ -269,7 +269,7 @@ export function MCPOperationsDisplay({ maxHeight = "400px" }: MCPOperationsDispl
                 </span>
               </div>
 
-              {op.target.title && (
+              {op.target?.title && (
                 <p className="text-xs text-slate-400 mt-1 ml-8">
                   → {op.target.title}
                 </p>
