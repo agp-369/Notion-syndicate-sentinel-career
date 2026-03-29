@@ -78,6 +78,7 @@ export interface MCPOperation {
   id: string;
   type: string;
   tool?: string;
+  target?: { title?: string };
   operation?: "read" | "write" | "update" | "search" | "delete" | "analyze";
   status?: "completed" | "failed" | "running" | "pending";
   timestamp: string;
