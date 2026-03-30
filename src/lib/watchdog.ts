@@ -21,8 +21,8 @@ export class SentinelWatchdog {
     const mcp = this.mcp;
     
     // 1. Find Lumina databases via MCP
-    const setup = await mcp.searchDatabases();
-    const jobsDataSourceId = setup.jobsDataSourceId;
+    const setup = await mcp.recoverInfrastructure();
+    const jobsDataSourceId = setup.jobsDbId;
 
     if (!jobsDataSourceId) throw new Error("Career Ledger/Job Tracker not found via MCP");
 
