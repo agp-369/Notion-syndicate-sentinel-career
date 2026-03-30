@@ -16,6 +16,7 @@ export interface UserProfile {
   experience: { role: string; company: string; duration: string; details?: string }[];
   education: { institution: string; degree: string; year?: string }[];
   goals: string[];
+  preferences?: any;
 }
 
 export interface WorkspaceSetup {
