@@ -124,7 +124,16 @@ export class NotionMCPClient {
    * 🧬 DEEP DNA SYNC: Uses 'notion-fetch' to read Resume/CV pages.
    */
   async discoverAndReadProfile(onLog?: (tx: MCPTransaction) => void): Promise<UserProfile> {
-    const profile: UserProfile = { name: "", headline: "", skills: [], experience: [], education: [] };
+    const profile: UserProfile = { 
+      name: "", 
+      headline: "", 
+      summary: "", 
+      skills: [], 
+      experience: [], 
+      education: [],
+      goals: [],
+      preferences: {}
+    };
     try {
       const search = await this.gateway.callTool("notion-search", {
         query: "resume cv profile",
