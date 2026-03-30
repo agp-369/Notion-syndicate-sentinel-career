@@ -122,9 +122,7 @@ export async function POST(req: NextRequest) {
           const pageUrl = await mcp.logForensicAudit(
             ledgerId,
             analysisData,
-            url ?? "",
-            undefined,
-            onLog
+            url ?? ""
           );
 
           send("synced", { pageUrl });
