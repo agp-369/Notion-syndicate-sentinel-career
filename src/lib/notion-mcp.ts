@@ -24,6 +24,22 @@ export interface ForensicReport {
   };
 }
 
+export interface UserProfile {
+  name: string;
+  email: string;
+  headline: string;
+  summary: string;
+  skills: string[];
+  techStack: string[];
+  yearsOfExperience: number;
+  currentRole: string;
+  currentCompany: string;
+  experience: { role: string; company: string; duration: string; description?: string }[];
+  education: { institution: string; degree: string; field: string; year: string }[];
+  goals: string[];
+  preferences: { location?: string; remote?: boolean; salary?: string; roles?: string[] };
+}
+
 export interface WorkspaceSetup {
   jobsDbId?: string;
   skillsDbId?: string;
