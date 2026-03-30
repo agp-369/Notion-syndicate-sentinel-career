@@ -252,7 +252,6 @@ export function AgentOSContent() {
 
   const loadExistingData = async () => {
     try {
-      // Load from API
       const res = await fetch("/api/career", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -263,18 +262,13 @@ export function AgentOSContent() {
         if (data.profile) setProfile(data.profile);
         if (data.jobs?.length > 0) setJobs(data.jobs);
         if (data.skills?.length > 0) setSkillGaps(data.skills);
-        if (data.infrastructure?.jobsDataSourceId) {
-          setInfraCreated(true);
-        }
+        if (data.infrastructure?.jobsDataSourceId) setInfraCreated(true);
       }
       
-      // Also load saved data from Notion databases via GET
       const savedRes = await fetch("/api/career");
       const savedData = await savedRes.json();
       if (savedData.success) {
-        if (savedData.jobs?.length > 0) {
-          setJobs(savedData.jobs);
-        }
+        if (savedData.jobs?.length > 0) setJobs(savedData.jobs);
         if (savedData.skills?.length > 0) {
           setSkillGaps(savedData.skills.map((s: any) => ({
             skill: s.skill,
@@ -286,6 +280,22 @@ export function AgentOSContent() {
             matchWithTechStack: 70
           })));
         }
+      }
+
+      if (jobs.length === 0 && skillGaps.length === 0) {
+        const sampleJobs: Job[] = [
+          { id: "sample_1", title: "Senior Frontend Engineer", company: "Stripe", matchScore: 94, reason: "React & TypeScript match your skills", status: "researching", requirements: ["5+ years React", "TypeScript", "System design"], benefits: ["Health", "401k", "Unlimited PTO"], cultureNotes: "Engineering-driven culture", location: "Remote", salary: "$150k-$200k" },
+          { id: "sample_2", title: "Full Stack Developer", company: "Vercel", matchScore: 88, reason: "Next.js expertise aligns perfectly", status: "applied", requirements: ["Next.js", "Node.js", "PostgreSQL"], benefits: ["Equity", "Health", "Learning budget"], cultureNotes: "Open source focused", location: "Remote", salary: "$130k-$180k" },
+          { id: "sample_3", title: "Software Engineer II", company: "GitHub", matchScore: 82, reason: "Developer tools experience valuable", status: "researching", requirements: ["JavaScript", "API design", "CI/CD"], benefits: ["Remote-first", "Sabbatical"], cultureNotes: "Collaborative team", location: "Remote (US)", salary: "$120k-$160k" }
+        ];
+        setJobs(sampleJobs);
+        setProfile({ name: "Alex Chen", email: "alex@demo.com", headline: "Full Stack Developer", summary: "Experienced developer with 6+ years building web applications", skills: ["React", "TypeScript", "Node.js", "PostgreSQL", "AWS"], techStack: ["React", "TypeScript", "Node.js"], yearsOfExperience: 6, currentRole: "Senior Developer", currentCompany: "TechCorp", experience: [{ role: "Senior Developer", company: "TechCorp", duration: "3 years" }], goals: ["Lead a team", "Build scalable systems"] });
+        setSkillGaps([
+          { skill: "Rust", category: "Systems", demand: 0.85, growth: "hot", avgSalary: "$140k-$200k", learningTime: "8-12 weeks", matchWithTechStack: 60 },
+          { skill: "GraphQL", category: "API", demand: 0.8, growth: "hot", avgSalary: "$120k-$170k", learningTime: "4-6 weeks", matchWithTechStack: 85 },
+          { skill: "Kubernetes", category: "DevOps", demand: 0.9, growth: "hot", avgSalary: "$130k-$180k", learningTime: "6-8 weeks", matchWithTechStack: 55 }
+        ]);
+        addLog("📋 Loaded sample data for demonstration");
       }
     } catch (e) {
       addLog(`Error loading data: ${e}`);
