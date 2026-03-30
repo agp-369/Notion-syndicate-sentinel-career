@@ -23,8 +23,8 @@ export interface WorkspaceSetup {
 }
 
 /**
- * 🛰️ NotionMCPClient v7.0 - PROTOCOL DEFINITIVE
- * Features: Official Tool Alignment, Groq-Powered extraction, Infrastructure State Machine.
+ * 🛰️ NotionMCPClient v8.0 - PROTOCOL ABSOLUTE
+ * Fully aligned with API 2025-09-03 (Data Source Architecture)
  */
 export class NotionMCPClient {
   public gateway: NotionMCPGateway;
@@ -39,7 +39,6 @@ export class NotionMCPClient {
   async recoverInfrastructure(onLog?: (tx: MCPTransaction) => void): Promise<WorkspaceSetup> {
     const setup: WorkspaceSetup = {};
     try {
-      // Step 1: Search for existing databases
       const res = await this.gateway.callTool("notion-search", {
         query: "Lumina",
         filter: { property: "object", value: "database" }
@@ -48,11 +47,10 @@ export class NotionMCPClient {
       const items = (res as any)?.results || [];
       for (const item of items) {
         const title = (item.title?.[0]?.plain_text || item.name || "").toLowerCase();
-        if (title.includes("job tracker")) setup.jobsDbId = item.id;
-        else if (title.includes("skill dna")) setup.skillsDbId = item.id;
+        if (title.includes("job tracker") || title.includes("career ledger")) setup.jobsDbId = item.id;
+        else if (title.includes("skill dna") || title.includes("talent pool")) setup.skillsDbId = item.id;
       }
 
-      // Step 2: Search for persistent state page
       const stateRes = await this.gateway.callTool("notion-search", {
         query: ".lumina-state",
         filter: { property: "object", value: "page" }
@@ -66,54 +64,65 @@ export class NotionMCPClient {
   }
 
   /**
-   * 🏗️ OFFICIAL PROVISIONING: Uses 'notion-create-database' to build OS.
+   * 🏗️ OFFICIAL PROVISIONING (API 2025-09-03 Standard)
+   * Uses 'initial_data_source' nesting for schema definition.
    */
   async initializeWorkspace(parentPageId: string, onLog?: (tx: MCPTransaction) => void): Promise<WorkspaceSetup> {
     const existing = await this.recoverInfrastructure(onLog);
     if (existing.jobsDbId && existing.skillsDbId) return existing;
 
     try {
+      // 1. Create Job Tracker (using Data Source schema)
       if (!existing.jobsDbId) {
-        const db = await this.gateway.callTool("notion-create-database", {
-          parent: { page_id: parentPageId },
+        const jobsDb = await this.gateway.callTool("notion-create-database", {
+          parent: { type: "page_id", page_id: parentPageId },
           title: [{ text: { content: "🎯 Lumina: Job Tracker" } }],
-          properties: {
-            "Job Title": { title: {} },
-            "Status": { select: { options: [
-              { name: "🔍 Researching", color: "yellow" },
-              { name: "🟡 REVIEW", color: "orange" },
-              { name: "✅ VERIFIED", color: "green" },
-              { name: "🚩 SCAM", color: "red" }
-            ]}},
-            "Company": { rich_text: {} },
-            "Job URL": { url: {} },
-            "Trust Score": { number: { format: "percent" } }
+          initial_data_source: {
+            name: "Lumina: Job Tracker",
+            properties: {
+              "Job Title": { title: {} },
+              "Status": { select: { options: [
+                { name: "🔍 Researching", color: "yellow" },
+                { name: "🟡 REVIEW", color: "orange" },
+                { name: "✅ VERIFIED", color: "green" },
+                { name: "🚩 SCAM", color: "red" }
+              ]}},
+              "Company": { rich_text: {} },
+              "Job URL": { url: {} },
+              "Trust Score": { number: { format: "percent" } }
+            }
           }
-        }, onLog, ["Provisioning Job Tracker..."]);
-        existing.jobsDbId = db?.id;
+        }, onLog, ["Provisioning Forensic Job Tracker (2025-09-03 schema)..."]);
+        existing.jobsDbId = jobsDb?.id;
       }
 
+      // 2. Create Skill DNA
       if (!existing.skillsDbId) {
-        const db = await this.gateway.callTool("notion-create-database", {
-          parent: { page_id: parentPageId },
+        const skillsDb = await this.gateway.callTool("notion-create-database", {
+          parent: { type: "page_id", page_id: parentPageId },
           title: [{ text: { content: "🧬 Lumina: Skill DNA" } }],
-          properties: {
-            "Skill": { title: {} },
-            "Category": { select: { options: [{ name: "Technical", color: "blue" }, { name: "Soft", color: "yellow" }] }},
-            "Proficiency": { number: { format: "percent" } }
+          initial_data_source: {
+            name: "Lumina: Skill DNA",
+            properties: {
+              "Skill": { title: {} },
+              "Category": { select: { options: [{ name: "Technical", color: "blue" }, { name: "Soft", color: "yellow" }] }},
+              "Proficiency": { number: { format: "percent" } }
+            }
           }
-        }, onLog, ["Provisioning Skill DNA..."]);
-        existing.skillsDbId = db?.id;
+        }, onLog, ["Provisioning Skill DNA (2025-09-03 schema)..."]);
+        existing.skillsDbId = skillsDb?.id;
       }
 
-      // Create hidden state page for fast recovery
+      // 3. Persistent State Page
       const state = await this.gateway.callTool("notion-create-pages", {
-        parent: { page_id: parentPageId },
+        parent: { type: "page_id", page_id: parentPageId },
         properties: { title: [{ text: { content: ".lumina-state" } }] },
         children: [{ object: "block", type: "code", code: { language: "json", rich_text: [{ text: { content: JSON.stringify(existing) } }] } }]
       });
       existing.statePageId = state?.id;
 
+    } catch (e) {
+      console.error("[PROVISION] Critical failure in 2025-09-03 handshake.");
     } finally {
       await this.gateway.close();
     }
@@ -125,14 +134,8 @@ export class NotionMCPClient {
    */
   async discoverAndReadProfile(onLog?: (tx: MCPTransaction) => void): Promise<UserProfile> {
     const profile: UserProfile = { 
-      name: "", 
-      headline: "", 
-      summary: "", 
-      skills: [], 
-      experience: [], 
-      education: [],
-      goals: [],
-      preferences: {}
+      name: "", headline: "", summary: "", skills: [], experience: [], 
+      education: [], goals: [], preferences: {}
     };
     try {
       const search = await this.gateway.callTool("notion-search", {
