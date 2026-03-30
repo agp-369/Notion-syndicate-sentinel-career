@@ -8,6 +8,7 @@ export type { MCPTransaction, ForensicReport };
 export interface UserProfile {
   name: string;
   headline: string;
+  summary: string;
   skills: string[];
   experience: any[];
   education: any[];
