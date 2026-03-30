@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ClerkProvider } from '@clerk/nextjs'
+import ClerkWrapper from "@/components/ClerkWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,13 +24,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkWrapper>
       <html lang="en">
         <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
           {/* Old Header removed to fix Double Icon Issue. User Management now lives in the Dashboard Nav Bar. */}
           {children}
         </body>
       </html>
-    </ClerkProvider>
+    </ClerkWrapper>
   );
 }
