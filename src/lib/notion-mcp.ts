@@ -11,6 +11,8 @@ export interface UserProfile {
   skills: string[];
   experience: any[];
   education: any[];
+  goals: string[];
+  preferences: { location?: string; remote?: boolean; salary?: string; roles?: string[] };
 }
 
 export interface WorkspaceSetup {
