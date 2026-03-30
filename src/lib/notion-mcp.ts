@@ -262,5 +262,43 @@ export class NotionMCPClient {
   }
 
   async queryDataSource(id: string) { return this.gateway.callTool("notion-query-data-sources", { database_id: id }); }
+
+  async logForensicAudit(dataSourceId: string, analysis: ForensicReport, url: string, existingPageId?: string, onLog?: (tx: MCPTransaction) => void): Promise<string> {
+    try {
+      const properties: any = {
+        "Job Title": { title: [{ text: { content: analysis.jobDetails.title } }] },
+        "Status": { select: { name: "🟡 AWAITING_REVIEW" } },
+        "Company": { rich_text: [{ text: { content: analysis.jobDetails.company } }] },
+        "Job URL": { url: url },
+        "Match Score": { number: analysis.score / 100 }
+      };
+
+      if (existingPageId) {
+        await this.gateway.callTool("notion-update-page", { page_id: existingPageId, properties }, onLog);
+        await this.gateway.callTool("notion-append-blocks", {
+          block_id: existingPageId,
+          children: [
+            { object: "block", type: "callout", callout: { rich_text: [{ text: { content: `🚨 FORENSIC VERDICT: ${analysis.verdict}` } }], icon: { type: "emoji", emoji: "🛡️" }, color: "red_background" } },
+            { object: "block", type: "paragraph", paragraph: { rich_text: [{ text: { content: analysis.jobDetails.summary } }] } }
+          ]
+        }, onLog);
+        return existingPageId;
+      } else {
+        const result = await this.gateway.callTool("notion-create-pages", {
+          parent: { database_id: dataSourceId },
+          properties,
+          children: [
+            { object: "block", type: "callout", callout: { rich_text: [{ text: { content: `🚨 FORENSIC VERDICT: ${analysis.verdict}` } }], icon: { type: "emoji", emoji: "🛡️" }, color: "red_background" } },
+            { object: "block", type: "paragraph", paragraph: { rich_text: [{ text: { content: analysis.jobDetails.summary } }] } }
+          ]
+        }, onLog);
+        return result?.id || "";
+      }
+    } catch (e: any) {
+      console.error("[BACKEND] Forensic log failed.", e.message);
+      return "";
+    }
+  }
+
   getTransactions() { return this.gateway.getTransactions(); }
 }
