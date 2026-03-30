@@ -262,7 +262,9 @@ export class NotionMCPClient {
     }
   }
 
-  async queryDataSource(id: string) { return this.gateway.callTool("notion-query-data-sources", { database_id: id }); }
+  async queryDataSource(id: string, pageSize: number = 50) { 
+    return this.gateway.callTool("notion-query-data-sources", { database_id: id, page_size: pageSize }); 
+  }
 
   async logForensicAudit(dataSourceId: string, analysis: ForensicReport, url: string, existingPageId?: string, onLog?: (tx: MCPTransaction) => void): Promise<string> {
     try {
